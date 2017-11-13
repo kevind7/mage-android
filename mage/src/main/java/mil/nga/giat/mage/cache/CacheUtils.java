@@ -48,7 +48,7 @@ public class CacheUtils {
                     cacheFile.delete();
                 }
                 String cacheName = MediaUtility.getFileNameWithoutExtension(cacheFile);
-                CacheProvider.getInstance(context).removeCacheOverlay(cacheName);
+                CacheProvider.getInstance().removeCacheOverlay(cacheName);
 
                 // Copy the file in a background task
                 CopyCacheStreamTask task = new CopyCacheStreamTask(context, uri, cacheFile, cacheName);

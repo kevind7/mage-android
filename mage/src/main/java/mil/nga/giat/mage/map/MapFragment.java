@@ -345,7 +345,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 
 			ObservationHelper.getInstance(getActivity().getApplicationContext()).addListener(this);
 			LocationHelper.getInstance(getActivity().getApplicationContext()).addListener(this);
-			CacheProvider.getInstance(getActivity().getApplicationContext()).registerCacheOverlayListener(this);
+			CacheProvider.getInstance().registerCacheOverlayListener(this);
 			StaticFeatureHelper.getInstance(getActivity().getApplicationContext()).addListener(this);
 		}
 
@@ -460,7 +460,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 		
 		mapView.onPause();
 
-		CacheProvider.getInstance(getActivity().getApplicationContext()).unregisterCacheOverlayListener(this);
+		CacheProvider.getInstance().unregisterCacheOverlayListener(this);
 		StaticFeatureHelper.getInstance(getActivity().getApplicationContext()).removeListener(this);
 
 		if (map != null) {

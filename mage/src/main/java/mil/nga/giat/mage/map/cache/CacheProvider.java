@@ -1,5 +1,6 @@
 package mil.nga.giat.mage.map.cache;
 
+import android.app.Application;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.AsyncTask;
@@ -36,30 +37,34 @@ import mil.nga.wkb.geom.GeometryType;
  */
 public class CacheProvider {
 
-    private static final String LOG_NAME = CacheProvider.class.getName();
-
-    private Context context;
-
-    private static CacheProvider instance = null;
-
-    protected CacheProvider(Context context) {
-        this.context = context;
-    }
-
-    public static CacheProvider getInstance(Context context) {
-        if (instance == null) {
-            instance = new CacheProvider(context);
-        }
-
-        return instance;
-    }
-
     public interface OnCacheOverlayListener {
         void onCacheOverlay(List<CacheOverlay> cacheOverlays);
     }
 
+    private static final String LOG_NAME = CacheProvider.class.getName();
+
+    private static CacheProvider instance = null;
+
+    public static synchronized void initializeWithAppContext(Application context) {
+        if (instance == null) {
+            instance = new CacheProvider(context);
+            return;
+        }
+        throw new Error("attempt to initializeWithAppContext " + CacheProvider.class + " more than once");
+    }
+
+    public static CacheProvider getInstance() {
+        return instance;
+    }
+
+    private Context context;
     private List<CacheOverlay> cacheOverlays = null;
+    private Map<CacheOverlay, Long> cacheIds = new HashMap<>();
     private Collection<OnCacheOverlayListener> cacheOverlayListeners = new ArrayList<>();
+
+    private CacheProvider(Context context) {
+        this.context = context;
+    }
 
     public void registerCacheOverlayListener(OnCacheOverlayListener listener) {
         cacheOverlayListeners.add(listener);

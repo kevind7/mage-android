@@ -109,7 +109,7 @@ public class LandingActivity extends AppCompatActivity implements NavigationView
         // i.e. after TokenExpiredActivity.
         ((MAGE) getApplication()).onLogin();
 
-        CacheProvider.getInstance(getApplicationContext()).refreshTileOverlays();
+        CacheProvider.getInstance().refreshTileOverlays();
 
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
@@ -268,7 +268,7 @@ public class LandingActivity extends AppCompatActivity implements NavigationView
             }
             case PERMISSIONS_REQUEST_ACCESS_STORAGE: {
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    CacheProvider.getInstance(getApplicationContext()).refreshTileOverlays();
+                    CacheProvider.getInstance().refreshTileOverlays();
                 }
 
                 break;
@@ -415,7 +415,7 @@ public class LandingActivity extends AppCompatActivity implements NavigationView
 
             String cacheName = GeoPackageCacheUtils.importGeoPackage(this, cacheFile);
             if (cacheName != null) {
-                CacheProvider.getInstance(getApplicationContext()).enableAndRefreshTileOverlays(cacheName);
+                CacheProvider.getInstance().enableAndRefreshTileOverlays(cacheName);
             }
         }
     }

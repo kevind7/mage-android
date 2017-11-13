@@ -131,7 +131,7 @@ public class TileOverlayPreferenceActivity extends AppCompatActivity  {
             // before I register as the call back will set it to enabled
             // the problem is that onResume gets called before this so my menu is
             // not yet setup and I will not have a handle on this button
-            CacheProvider.getInstance(getActivity()).registerCacheOverlayListener(this);
+            CacheProvider.getInstance().registerCacheOverlayListener(this);
         }
 
         @Override
@@ -141,7 +141,7 @@ public class TileOverlayPreferenceActivity extends AppCompatActivity  {
                     item.setEnabled(false);
                     progressBar.setVisibility(View.VISIBLE);
                     listView.setEnabled(false);
-                    CacheProvider.getInstance(getActivity()).refreshTileOverlays();
+                    CacheProvider.getInstance().refreshTileOverlays();
                     return true;
                 default:
                     return super.onOptionsItemSelected(item);
@@ -152,7 +152,7 @@ public class TileOverlayPreferenceActivity extends AppCompatActivity  {
         public void onDestroy() {
             super.onDestroy();
 
-            CacheProvider.getInstance(getActivity()).unregisterCacheOverlayListener(this);
+            CacheProvider.getInstance().unregisterCacheOverlayListener(this);
         }
 
         @Override
@@ -192,7 +192,7 @@ public class TileOverlayPreferenceActivity extends AppCompatActivity  {
             switch (requestCode) {
                 case PERMISSIONS_REQUEST_READ_EXTERNAL_STORAGE: {
                     if(grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                        CacheProvider.getInstance(getActivity()).refreshTileOverlays();
+                        CacheProvider.getInstance().refreshTileOverlays();
                     };
 
                     break;
@@ -303,7 +303,7 @@ public class TileOverlayPreferenceActivity extends AppCompatActivity  {
 
             }
 
-            CacheProvider.getInstance(getActivity()).refreshTileOverlays();
+            CacheProvider.getInstance().refreshTileOverlays();
         }
 
         /**

@@ -17,6 +17,7 @@ import android.util.Log;
 
 import mil.nga.giat.mage.login.LoginActivity;
 import mil.nga.giat.mage.login.SignupActivity;
+import mil.nga.giat.mage.map.cache.CacheProvider;
 import mil.nga.giat.mage.observation.ObservationNotificationListener;
 import mil.nga.giat.mage.sdk.datastore.observation.ObservationHelper;
 import mil.nga.giat.mage.sdk.datastore.user.User;
@@ -61,10 +62,12 @@ public class MAGE extends MultiDexApplication implements IUserEventListener, App
 
 	@Override
 	public void onCreate() {
+
 		// setup the screen unlock stuff
 		registerReceiver(ScreenChangeReceiver.getInstance(), new IntentFilter(Intent.ACTION_SCREEN_ON));
 
 		HttpClientManager.getInstance(getApplicationContext()).addListener(this);
+        CacheProvider.initializeWithAppContext(this);
 
 		registerActivityLifecycleCallbacks(this);
 
