@@ -41,7 +41,7 @@ public class GeoPackageCacheUtils {
         if (!manager.existsAtExternalFile(cacheFile)) {
 
             // Get the cache name
-            String cacheName = getCacheName(manager, cacheFile);
+            String cacheName = makeUniqueCacheName(manager, cacheFile);
 
             // Import the GeoPackage as a linked file
             try{
@@ -73,7 +73,7 @@ public class GeoPackageCacheUtils {
      * @param cacheFile
      * @return cache name
      */
-    public static String getCacheName(GeoPackageManager manager, File cacheFile) {
+    private static String makeUniqueCacheName(GeoPackageManager manager, File cacheFile) {
 
         // Get the cache name
         String cacheName = MediaUtility.getFileNameWithoutExtension(cacheFile);

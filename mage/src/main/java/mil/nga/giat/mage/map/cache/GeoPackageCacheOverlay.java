@@ -36,7 +36,7 @@ public class GeoPackageCacheOverlay extends CacheOverlay {
                     linkedTileTable.setParent(this);
                 }
             }
-            this.tables.put(table.getCacheName(), table);
+            this.tables.put(table.getTableName(), table);
         }
     }
 
@@ -54,9 +54,7 @@ public class GeoPackageCacheOverlay extends CacheOverlay {
 
     @Override
     public List<CacheOverlay> getChildren() {
-        List<CacheOverlay> children = new ArrayList<>();
-        children.addAll(tables.values());
-        return children;
+        return new ArrayList<>(tables.values());
     }
 
 }

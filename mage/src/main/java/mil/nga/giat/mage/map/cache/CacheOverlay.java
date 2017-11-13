@@ -4,7 +4,7 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.MapView;
 import com.google.android.gms.maps.model.LatLng;
 
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -15,14 +15,9 @@ import java.util.List;
 public abstract class CacheOverlay {
 
     /**
-     * Name
+     * Name of the cache overlay
      */
-    private final String name;
-
-    /**
-     * Cache name
-     */
-    private final String cacheName;
+    private final String overlayName;
 
     /**
      * Cache type
@@ -47,25 +42,12 @@ public abstract class CacheOverlay {
     /**
      * Constructor
      *
-     * @param name             name
+     * @param overlayName             overlayName
      * @param type             cache type
      * @param supportsChildren true if cache overlay with children caches
      */
-    protected CacheOverlay(String name, CacheOverlayType type, boolean supportsChildren) {
-        this(name, name, type, supportsChildren);
-    }
-
-    /**
-     * Constructor
-     *
-     * @param name             name
-     * @param cacheName        cache name
-     * @param type             cache type
-     * @param supportsChildren true if cache overlay with children caches
-     */
-    protected CacheOverlay(String name, String cacheName, CacheOverlayType type, boolean supportsChildren) {
-        this.name = name;
-        this.cacheName = cacheName;
+    protected CacheOverlay(String overlayName, CacheOverlayType type, boolean supportsChildren) {
+        this.overlayName = overlayName;
         this.type = type;
         this.supportsChildren = supportsChildren;
     }
@@ -75,12 +57,8 @@ public abstract class CacheOverlay {
      */
     public abstract void removeFromMap();
 
-    public String getName() {
-        return name;
-    }
-
-    public String getCacheName() {
-        return cacheName;
+    public String getOverlayName() {
+        return overlayName;
     }
 
     public CacheOverlayType getType() {
@@ -127,16 +105,7 @@ public abstract class CacheOverlay {
      * @return
      */
     public List<CacheOverlay> getChildren() {
-        return new ArrayList<>();
-    }
-
-    /**
-     * Return true if a child cache overlay, false if a top level with or without children
-     *
-     * @return true if a child
-     */
-    public boolean isChild(){
-        return false;
+        return Collections.emptyList();
     }
 
     /**
@@ -170,10 +139,10 @@ public abstract class CacheOverlay {
     }
 
     /**
-     * Build the cache name of a child
+     * Build the cache overlayName of a child
      *
-     * @param name      cache name
-     * @param childName child cache name
+     * @param name      cache overlay name
+     * @param childName child cache overlay name
      * @return
      */
     public static String buildChildCacheName(String name, String childName) {

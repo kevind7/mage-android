@@ -31,15 +31,15 @@ public class GeoPackageTileTableCacheOverlay extends GeoPackageTableCacheOverlay
     /**
      * Constructor
      *
-     * @param name       GeoPackage table name
+     * @param name       overlay name
      * @param geoPackage GeoPackage name
-     * @param cacheName  Cache name
+     * @param tableName  GeoPackage table name
      * @param count      count
      * @param minZoom    min zoom level
      * @param maxZoom    max zoom level
      */
-    public GeoPackageTileTableCacheOverlay(String name, String geoPackage, String cacheName, int count, int minZoom, int maxZoom) {
-        super(name, geoPackage, cacheName, CacheOverlayType.GEOPACKAGE_TILE_TABLE, count, minZoom, maxZoom);
+    public GeoPackageTileTableCacheOverlay(String name, String geoPackage, String tableName, int count, int minZoom, int maxZoom) {
+        super(name, geoPackage, tableName, CacheOverlayType.GEOPACKAGE_TILE_TABLE, count, minZoom, maxZoom);
     }
 
     @Override

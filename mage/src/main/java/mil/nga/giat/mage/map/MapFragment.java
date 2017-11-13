@@ -842,7 +842,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 			// If this cache overlay potentially replaced by a new version
 			if(cacheOverlay.isAdded()){
 				if(cacheOverlay.getType() == CacheOverlayType.GEOPACKAGE){
-					geoPackageCache.close(cacheOverlay.getName());
+					geoPackageCache.close(cacheOverlay.getOverlayName());
 				}
 			}
 
@@ -904,7 +904,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 	 */
 	private void addXYZDirectoryCacheOverlay(Map<String, CacheOverlay> enabledCacheOverlays, XYZDirectoryCacheOverlay xyzDirectoryCacheOverlay){
 		// Retrieve the cache overlay if it already exists (and remove from cache overlays)
-		CacheOverlay cacheOverlay = cacheOverlays.remove(xyzDirectoryCacheOverlay.getCacheName());
+		CacheOverlay cacheOverlay = cacheOverlays.remove(xyzDirectoryCacheOverlay.getOverlayName());
 		if(cacheOverlay == null){
 			// Create a new tile provider and add to the map
 			TileProvider tileProvider = new FileSystemTileProvider(256, 256, xyzDirectoryCacheOverlay.getDirectory().getAbsolutePath());
@@ -915,7 +915,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 			cacheOverlay = xyzDirectoryCacheOverlay;
 		}
 		// Add the cache overlay to the enabled cache overlays
-		enabledCacheOverlays.put(cacheOverlay.getCacheName(), cacheOverlay);
+		enabledCacheOverlays.put(cacheOverlay.getOverlayName(), cacheOverlay);
 	}
 
 	/**
@@ -932,7 +932,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 			if(tableCacheOverlay.isEnabled()){
 
 				// Get and open if needed the GeoPackage
-				GeoPackage geoPackage = geoPackageCache.getOrOpen(geoPackageCacheOverlay.getName());
+				GeoPackage geoPackage = geoPackageCache.getOrOpen(geoPackageCacheOverlay.getOverlayName());
 				enabledGeoPackages.add(geoPackage.getName());
 
 				// Handle tile and feature tables
@@ -952,7 +952,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 
 					try {
 						ContentsDao contentsDao = geoPackage.getContentsDao();
-						Contents contents = contentsDao.queryForId(tableCacheOverlay.getName());
+						Contents contents = contentsDao.queryForId(((GeoPackageTileTableCacheOverlay) tableCacheOverlay).getTableName());
 						BoundingBox contentsBoundingBox = contents.getBoundingBox();
 						Projection projection = ProjectionFactory
 								.getProjection(contents.getSrs().getOrganizationCoordsysId());
@@ -968,7 +968,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 						}
 					}catch(Exception e){
 						Log.e(LOG_NAME, "Failed to retrieve GeoPackage Table bounding box. GeoPackage: "
-								+ geoPackage.getName() + ", Table: " + tableCacheOverlay.getName(), e);
+								+ geoPackage.getName() + ", Table: " + tableCacheOverlay.getOverlayName(), e);
 					}
 				}
 			}
@@ -984,7 +984,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 	 */
 	private void addGeoPackageTileCacheOverlay(Map<String, CacheOverlay> enabledCacheOverlays, GeoPackageTileTableCacheOverlay tileTableCacheOverlay, GeoPackage geoPackage, boolean linkedToFeatures){
 		// Retrieve the cache overlay if it already exists (and remove from cache overlays)
-		CacheOverlay cacheOverlay = cacheOverlays.remove(tileTableCacheOverlay.getCacheName());
+		CacheOverlay cacheOverlay = cacheOverlays.remove(tileTableCacheOverlay.getTableName());
 		if(cacheOverlay != null){
 			// If the existing cache overlay is being replaced, create a new cache overlay
 			if(tileTableCacheOverlay.getParent().isAdded()){
@@ -993,7 +993,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 		}
 		if(cacheOverlay == null){
 			// Create a new GeoPackage tile provider and add to the map
-			TileDao tileDao = geoPackage.getTileDao(tileTableCacheOverlay.getName());
+			TileDao tileDao = geoPackage.getTileDao(tileTableCacheOverlay.getTableName());
 			BoundedOverlay geoPackageTileProvider = GeoPackageOverlayFactory.getBoundedOverlay(tileDao);
 			TileOverlayOptions overlayOptions = null;
 			if(linkedToFeatures){
@@ -1025,7 +1025,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 			cacheOverlay = tileTableCacheOverlay;
 		}
 		// Add the cache overlay to the enabled cache overlays
-		enabledCacheOverlays.put(cacheOverlay.getCacheName(), cacheOverlay);
+		enabledCacheOverlays.put(cacheOverlay.getOverlayName(), cacheOverlay);
 	}
 
 	/**
@@ -1036,7 +1036,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 	 */
 	private void addGeoPackageFeatureCacheOverlay(Map<String, CacheOverlay> enabledCacheOverlays, GeoPackageFeatureTableCacheOverlay featureTableCacheOverlay, GeoPackage geoPackage){
 		// Retrieve the cache overlay if it already exists (and remove from cache overlays)
-		CacheOverlay cacheOverlay = cacheOverlays.remove(featureTableCacheOverlay.getCacheName());
+		CacheOverlay cacheOverlay = cacheOverlays.remove(featureTableCacheOverlay.getTableName());
 		if(cacheOverlay != null){
 			// If the existing cache overlay is being replaced, create a new cache overlay
 			if(featureTableCacheOverlay.getParent().isAdded()){
@@ -1047,12 +1047,12 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 					// Add the existing linked tile cache overlays
 					addGeoPackageTileCacheOverlay(enabledCacheOverlays, linkedTileTable, geoPackage, true);
 				}
-				cacheOverlays.remove(linkedTileTable.getCacheName());
+				cacheOverlays.remove(linkedTileTable.getTableName());
 			}
 		}
 		if(cacheOverlay == null) {
 			// Add the features to the map
-			FeatureDao featureDao = geoPackage.getFeatureDao(featureTableCacheOverlay.getName());
+			FeatureDao featureDao = geoPackage.getFeatureDao(featureTableCacheOverlay.getTableName());
 
 			// If indexed, add as a tile overlay
 			if(featureTableCacheOverlay.isIndexed()){
@@ -1110,7 +1110,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 
 								if(++count >= maxFeaturesPerTable){
 									if(count < totalCount){
-										Toast.makeText(getActivity().getApplicationContext(), featureTableCacheOverlay.getCacheName()
+										Toast.makeText(getActivity().getApplicationContext(), featureTableCacheOverlay.getTableName()
 												+ "- added " + count + " of " + totalCount, Toast.LENGTH_LONG).show();
 									}
 									break;
@@ -1132,7 +1132,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 		}
 
 		// Add the cache overlay to the enabled cache overlays
-		enabledCacheOverlays.put(cacheOverlay.getCacheName(), cacheOverlay);
+		enabledCacheOverlays.put(cacheOverlay.getOverlayName(), cacheOverlay);
 	}
 
 	/**

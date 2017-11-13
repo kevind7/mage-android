@@ -13,6 +13,11 @@ public abstract class GeoPackageTableCacheOverlay extends CacheOverlay {
     private final String geoPackage;
 
     /**
+     * Cache label
+     */
+    private final String tableName;
+
+    /**
      * Count of data in the table
      */
     private final int count;
@@ -35,25 +40,21 @@ public abstract class GeoPackageTableCacheOverlay extends CacheOverlay {
     /**
      * Constructor
      *
-     * @param name       GeoPackage table name
+     * @param name       overlay name
      * @param geoPackage GeoPackage name
-     * @param cacheName  Cache name
+     * @param tableName  GeoPackage table name
      * @param type       cache type
      * @param count      count
      * @param minZoom    min zoom level
      * @param maxZoom    max zoom level
      */
-    protected GeoPackageTableCacheOverlay(String name, String geoPackage, String cacheName, CacheOverlayType type, int count, int minZoom, Integer maxZoom) {
-        super(name, cacheName, type, false);
+    protected GeoPackageTableCacheOverlay(String name, String geoPackage, String tableName, CacheOverlayType type, int count, int minZoom, Integer maxZoom) {
+        super(name, type, false);
         this.geoPackage = geoPackage;
+        this.tableName = tableName;
         this.count = count;
         this.minZoom = minZoom;
         this.maxZoom = maxZoom;
-    }
-
-    @Override
-    public boolean isChild(){
-        return true;
     }
 
     @Override
@@ -77,6 +78,10 @@ public abstract class GeoPackageTableCacheOverlay extends CacheOverlay {
      */
     public String getGeoPackage() {
         return geoPackage;
+    }
+
+    public String getTableName() {
+        return tableName;
     }
 
     /**
@@ -105,5 +110,4 @@ public abstract class GeoPackageTableCacheOverlay extends CacheOverlay {
     public int getMaxZoom() {
         return maxZoom;
     }
-
 }

@@ -61,16 +61,16 @@ public class GeoPackageFeatureTableCacheOverlay extends GeoPackageTableCacheOver
     /**
      * Constructor
      *
-     * @param name         GeoPackage table name
+     * @param name         overlay name
      * @param geoPackage   GeoPackage name
-     * @param cacheName    Cache name
+     * @param tableName    GeoPackage table name
      * @param count        count
      * @param minZoom      min zoom level
      * @param indexed      indexed flag
      * @param geometryType geometry type
      */
-    public GeoPackageFeatureTableCacheOverlay(String name, String geoPackage, String cacheName, int count, int minZoom, boolean indexed, GeometryType geometryType) {
-        super(name, geoPackage, cacheName, CacheOverlayType.GEOPACKAGE_FEATURE_TABLE, count, minZoom, MAX_ZOOM);
+    public GeoPackageFeatureTableCacheOverlay(String name, String geoPackage, String tableName, int count, int minZoom, boolean indexed, GeometryType geometryType) {
+        super(name, geoPackage, tableName, CacheOverlayType.GEOPACKAGE_FEATURE_TABLE, count, minZoom, MAX_ZOOM);
         this.indexed = indexed;
         this.geometryType = geometryType;
     }

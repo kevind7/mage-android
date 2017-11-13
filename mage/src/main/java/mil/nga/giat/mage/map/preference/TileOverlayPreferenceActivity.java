@@ -213,13 +213,13 @@ public class TileOverlayPreferenceActivity extends AppCompatActivity  {
                     boolean childAdded = false;
                     for (CacheOverlay childCache : cacheOverlay.getChildren()) {
                         if (childCache.isEnabled()) {
-                            overlays.add(childCache.getCacheName());
+                            overlays.add(childCache.getOverlayName());
                             childAdded = true;
                         }
                     }
 
                     if (!childAdded && cacheOverlay.isEnabled()) {
-                        overlays.add(cacheOverlay.getCacheName());
+                        overlays.add(cacheOverlay.getOverlayName());
                     }
                 }
             }
@@ -233,7 +233,7 @@ public class TileOverlayPreferenceActivity extends AppCompatActivity  {
         private void deleteCacheOverlayConfirm(final CacheOverlay cacheOverlay) {
             AlertDialog deleteDialog = new AlertDialog.Builder(getActivity())
                     .setTitle("Delete Cache")
-                    .setMessage("Delete " + cacheOverlay.getName() + " Cache?")
+                    .setMessage("Delete " + cacheOverlay.getOverlayName() + " Cache?")
                     .setPositiveButton("Delete",
 
                             new DialogInterface.OnClickListener() {
@@ -312,7 +312,7 @@ public class TileOverlayPreferenceActivity extends AppCompatActivity  {
          */
         private void deleteGeoPackageCacheOverlay(GeoPackageCacheOverlay geoPackageCacheOverlay){
 
-            String database = geoPackageCacheOverlay.getName();
+            String database = geoPackageCacheOverlay.getOverlayName();
 
             // Get the GeoPackage file
             GeoPackageManager manager = GeoPackageFactory.getManager(getActivity());
@@ -460,7 +460,7 @@ public class TileOverlayPreferenceActivity extends AppCompatActivity  {
             }else{
                 imageView.setImageResource(-1);
             }
-            cacheName.setText(overlay.getName());
+            cacheName.setText(overlay.getOverlayName());
             if (overlay.isSupportsChildren()) {
                 childCount.setText("(" + getChildrenCount(i) + ")");
             }else{
@@ -521,7 +521,7 @@ public class TileOverlayPreferenceActivity extends AppCompatActivity  {
                 }
             });
 
-            tableName.setText(childCache.getName());
+            tableName.setText(childCache.getOverlayName());
             info.setText(childCache.getInfo());
             checkBox.setChecked(childCache.isEnabled());
 

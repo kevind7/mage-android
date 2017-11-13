@@ -73,7 +73,7 @@ public class CacheProvider {
             Iterator<CacheOverlay> iterator = cacheOverlays.iterator();
             while(iterator.hasNext()){
                 CacheOverlay cacheOverlay = iterator.next();
-                if(cacheOverlay.getCacheName().equalsIgnoreCase(name)){
+                if(cacheOverlay.getOverlayName().equalsIgnoreCase(name)){
                     iterator.remove();
                     removed = true;
                     break;
@@ -134,13 +134,13 @@ public class CacheProvider {
             for (File storageLocation : storageLocations.values()) {
                 File root = new File(storageLocation, context.getString(R.string.overlay_cache_directory));
                 if (root.exists() && root.isDirectory() && root.canRead()) {
-                    for (File cache : root.listFiles()) {
-                        if(cache.canRead()) {
-                            if (cache.isDirectory()) {
+                    for (File path : root.listFiles()) {
+                        if(path.canRead()) {
+                            if (path.isDirectory()) {
                                 // found a cache
-                                overlays.add(new XYZDirectoryCacheOverlay(cache.getName(), cache));
-                            } else if (GeoPackageValidate.hasGeoPackageExtension(cache)) {
-                                GeoPackageCacheOverlay cacheOverlay = getGeoPackageCacheOverlay(context, cache, geoPackageManager);
+                                overlays.add(new XYZDirectoryCacheOverlay(path.getName(), path));
+                            } else if (GeoPackageValidate.hasGeoPackageExtension(path)) {
+                                GeoPackageCacheOverlay cacheOverlay = getGeoPackageCacheOverlay(context, path, geoPackageManager);
                                 if (cacheOverlay != null) {
                                     overlays.add(cacheOverlay);
                                 }
@@ -175,14 +175,14 @@ public class CacheProvider {
             for (CacheOverlay cacheOverlay : overlays) {
 
                 // Check and enable the cache
-                String cacheName = cacheOverlay.getCacheName();
+                String cacheName = cacheOverlay.getOverlayName();
                 if (enabledOverlays.remove(cacheName)) {
                     cacheOverlay.setEnabled(true);
                 }
 
                 // Check the child caches
                 for (CacheOverlay childCache : cacheOverlay.getChildren()) {
-                    if (enabledOverlays.remove(childCache.getCacheName())) {
+                    if (enabledOverlays.remove(childCache.getOverlayName())) {
                         childCache.setEnabled(true);
                         cacheOverlay.setEnabled(true);
                     }
@@ -197,7 +197,7 @@ public class CacheProvider {
                     if (cacheOverlay.isSupportsChildren()) {
                         for (CacheOverlay childCache : cacheOverlay.getChildren()) {
                             childCache.setEnabled(true);
-                            updatedEnabledOverlays.add(childCache.getCacheName());
+                            updatedEnabledOverlays.add(childCache.getOverlayName());
                         }
                     } else {
                         updatedEnabledOverlays.add(cacheName);
@@ -288,20 +288,19 @@ public class CacheProvider {
         // Add the GeoPackage overlay
         try {
             geoPackage = geoPackageManager.open(database);
-
             List<GeoPackageTableCacheOverlay> tables = new ArrayList<>();
 
             // GeoPackage tile tables, build a mapping between table name and the created cache overlays
             Map<String, GeoPackageTileTableCacheOverlay> tileCacheOverlays = new HashMap<>();
             List<String> tileTables = geoPackage.getTileTables();
-            for (String tileTable : tileTables) {
-                String tableCacheName = CacheOverlay.buildChildCacheName(database, tileTable);
-                TileDao tileDao = geoPackage.getTileDao(tileTable);
+            for (String tableName : tileTables) {
+                String tableCacheName = CacheOverlay.buildChildCacheName(database, tableName);
+                TileDao tileDao = geoPackage.getTileDao(tableName);
                 int count = tileDao.count();
                 int minZoom = (int) tileDao.getMinZoom();
                 int maxZoom = (int) tileDao.getMaxZoom();
-                GeoPackageTileTableCacheOverlay tableCache = new GeoPackageTileTableCacheOverlay(tileTable, database, tableCacheName, count, minZoom, maxZoom);
-                tileCacheOverlays.put(tileTable, tableCache);
+                GeoPackageTileTableCacheOverlay tableCache = new GeoPackageTileTableCacheOverlay(tableCacheName, database, tableName, count, minZoom, maxZoom);
+                tileCacheOverlays.put(tableName, tableCache);
             }
 
             // Get a linker to find tile tables linked to features
@@ -310,9 +309,9 @@ public class CacheProvider {
 
             // GeoPackage feature tables
             List<String> featureTables = geoPackage.getFeatureTables();
-            for (String featureTable : featureTables) {
-                String tableCacheName = CacheOverlay.buildChildCacheName(database, featureTable);
-                FeatureDao featureDao = geoPackage.getFeatureDao(featureTable);
+            for (String tableName : featureTables) {
+                String tableCacheName = CacheOverlay.buildChildCacheName(database, tableName);
+                FeatureDao featureDao = geoPackage.getFeatureDao(tableName);
                 int count = featureDao.count();
                 GeometryType geometryType = featureDao.getGeometryType();
                 FeatureIndexManager indexer = new FeatureIndexManager(context, geoPackage, featureDao);
@@ -323,11 +322,11 @@ public class CacheProvider {
                     minZoom = Math.max(minZoom, 0);
                     minZoom = Math.min(minZoom, GeoPackageFeatureTableCacheOverlay.MAX_ZOOM);
                 }
-                GeoPackageFeatureTableCacheOverlay tableCache = new GeoPackageFeatureTableCacheOverlay(featureTable, database, tableCacheName, count, minZoom, indexed, geometryType);
+                GeoPackageFeatureTableCacheOverlay tableCache = new GeoPackageFeatureTableCacheOverlay(tableCacheName, database, tableName, count, minZoom, indexed, geometryType);
 
                 // If indexed, check for linked tile tables
                 if(indexed){
-                    List<String> linkedTileTables = linker.getTileTablesForFeatureTable(featureTable);
+                    List<String> linkedTileTables = linker.getTileTablesForFeatureTable(tableName);
                     for(String linkedTileTable: linkedTileTables){
                         // Get the tile table cache overlay
                         GeoPackageTileTableCacheOverlay tileCacheOverlay = tileCacheOverlays.get(linkedTileTable);
