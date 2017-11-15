@@ -57,12 +57,12 @@ public class CacheProvider {
         return instance;
     }
 
-    private Context context;
-    private List<CacheOverlay> cacheOverlays = null;
+    private Application context;
+    private List<CacheOverlay> cacheOverlays;
     private Map<CacheOverlay, Long> cacheIds = new HashMap<>();
     private Collection<OnCacheOverlayListener> cacheOverlayListeners = new ArrayList<>();
 
-    private CacheProvider(Context context) {
+    private CacheProvider(Application context) {
         this.context = context;
     }
 
