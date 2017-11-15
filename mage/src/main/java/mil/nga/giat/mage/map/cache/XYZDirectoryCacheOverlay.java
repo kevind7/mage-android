@@ -74,4 +74,14 @@ public class XYZDirectoryCacheOverlay extends CacheOverlay {
         this.tileOverlay = tileOverlay;
     }
 
+    @Override
+    public boolean equals(Object other) {
+        return other instanceof XYZDirectoryCacheOverlay && getDirectory().equals(((XYZDirectoryCacheOverlay) other).getDirectory());
+    }
+
+    @Override
+    public int hashCode() {
+        return getDirectory().hashCode();
+    }
+
 }

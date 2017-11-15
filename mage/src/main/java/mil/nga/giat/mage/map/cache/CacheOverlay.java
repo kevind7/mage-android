@@ -138,6 +138,16 @@ public abstract class CacheOverlay {
         return null;
     }
 
+    @Override
+    public boolean equals(Object obj) {
+        return obj != null && getClass().equals(obj.getClass()) && getOverlayName().equals(((CacheOverlay)obj).getOverlayName());
+    }
+
+    @Override
+    public int hashCode() {
+        return getOverlayName().hashCode();
+    }
+
     /**
      * Build the cache overlayName of a child
      *
