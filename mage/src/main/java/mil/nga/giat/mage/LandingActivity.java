@@ -415,7 +415,7 @@ public class LandingActivity extends AppCompatActivity implements NavigationView
 
             String cacheName = GeoPackageCacheUtils.importGeoPackage(this, cacheFile);
             if (cacheName != null) {
-                CacheProvider.getInstance().enableAndRefreshTileOverlays(cacheName);
+                CacheProvider.getInstance().refreshAndEnableOverlay(cacheName);
             }
         }
     }

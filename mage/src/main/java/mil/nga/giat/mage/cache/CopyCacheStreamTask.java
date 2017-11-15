@@ -82,7 +82,7 @@ public class CopyCacheStreamTask extends AsyncTask<Void, Void, String> {
     @Override
     protected void onPostExecute(String result) {
         if (result == null) {
-            CacheProvider.getInstance().enableAndRefreshTileOverlays(cacheName);
+            CacheProvider.getInstance().refreshAndEnableOverlay(cacheName);
         }
     }
 

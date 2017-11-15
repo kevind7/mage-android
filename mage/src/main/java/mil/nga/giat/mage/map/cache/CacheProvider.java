@@ -17,6 +17,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 
 import mil.nga.geopackage.GeoPackage;
 import mil.nga.geopackage.GeoPackageManager;
@@ -72,20 +73,18 @@ public class CacheProvider {
             listener.onCacheOverlay(cacheOverlays);
     }
 
-    public boolean removeCacheOverlay(String name){
-        boolean removed = false;
-        if(cacheOverlays != null){
-            Iterator<CacheOverlay> iterator = cacheOverlays.iterator();
-            while(iterator.hasNext()){
-                CacheOverlay cacheOverlay = iterator.next();
-                if(cacheOverlay.getOverlayName().equalsIgnoreCase(name)){
-                    iterator.remove();
-                    removed = true;
-                    break;
-                }
+    public void removeCacheOverlay(String name){
+        if (cacheOverlays == null) {
+            return;
+        }
+        Iterator<CacheOverlay> iterator = cacheOverlays.iterator();
+        while (iterator.hasNext()) {
+            CacheOverlay cacheOverlay = iterator.next();
+            if (cacheOverlay.getOverlayName().equalsIgnoreCase(name)) {
+                iterator.remove();
+                return;
             }
         }
-        return removed;
     }
 
     public void unregisterCacheOverlayListener(OnCacheOverlayListener listener) {
@@ -93,37 +92,32 @@ public class CacheProvider {
     }
 
     public void refreshTileOverlays() {
-        TileOverlaysTask task = new TileOverlaysTask(null);
+        FindCacheOverlaysTask task = new FindCacheOverlaysTask();
         task.execute();
     }
 
-    public void enableAndRefreshTileOverlays(String enableOverlayName) {
-        List<String> overlayNames = new ArrayList<>();
-        overlayNames.add(enableOverlayName);
-        enableAndRefreshTileOverlays(overlayNames);
-    }
-
-    public void enableAndRefreshTileOverlays(Collection<String> enableOverlayNames) {
-        TileOverlaysTask task = new TileOverlaysTask(enableOverlayNames);
+    public void refreshAndEnableOverlay(String enableOverlayName) {
+        FindCacheOverlaysTask task = new FindCacheOverlaysTask(Collections.singleton(enableOverlayName));
         task.execute();
     }
 
     private void setCacheOverlays(List<CacheOverlay> cacheOverlays) {
         this.cacheOverlays = cacheOverlays;
-
         for (OnCacheOverlayListener listener : cacheOverlayListeners) {
             listener.onCacheOverlay(cacheOverlays);
         }
     }
 
-    private class TileOverlaysTask extends AsyncTask<Void, Void, List<CacheOverlay>> {
+    private class FindCacheOverlaysTask extends AsyncTask<Void, Void, List<CacheOverlay>> {
 
-        private Set<String> enable = new HashSet<>();
+        private final Set<String> overlaysToEnable;
 
-        public TileOverlaysTask(Collection<String> enable){
-            if(enable != null) {
-                this.enable.addAll(enable);
-            }
+        FindCacheOverlaysTask() {
+            this(Collections.<String>emptySet());
+        }
+
+        FindCacheOverlaysTask(Collection<String> overlaysToEnable) {
+            this.overlaysToEnable = new TreeSet<>(overlaysToEnable);
         }
 
         @Override
@@ -140,9 +134,8 @@ public class CacheProvider {
                 File root = new File(storageLocation, context.getString(R.string.overlay_cache_directory));
                 if (root.exists() && root.isDirectory() && root.canRead()) {
                     for (File path : root.listFiles()) {
-                        if(path.canRead()) {
+                        if (path.canRead()) {
                             if (path.isDirectory()) {
-                                // found a cache
                                 overlays.add(new XYZDirectoryCacheOverlay(path.getName(), path));
                             } else if (GeoPackageValidate.hasGeoPackageExtension(path)) {
                                 GeoPackageCacheOverlay cacheOverlay = getGeoPackageCacheOverlay(context, path, geoPackageManager);
@@ -194,7 +187,7 @@ public class CacheProvider {
                 }
 
                 // Check for new caches to enable in the overlays and preferences
-                if (enable.contains(cacheName)) {
+                if (overlaysToEnable.contains(cacheName)) {
 
                     update = true;
                     cacheOverlay.setEnabled(true);
