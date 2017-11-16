@@ -984,7 +984,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 	 */
 	private void addGeoPackageTileCacheOverlay(Map<String, CacheOverlay> enabledCacheOverlays, GeoPackageTileTableCacheOverlay tileTableCacheOverlay, GeoPackage geoPackage, boolean linkedToFeatures){
 		// Retrieve the cache overlay if it already exists (and remove from cache overlays)
-		CacheOverlay cacheOverlay = cacheOverlays.remove(tileTableCacheOverlay.getTableName());
+		CacheOverlay cacheOverlay = cacheOverlays.remove(tileTableCacheOverlay.getOverlayName());
 		if(cacheOverlay != null){
 			// If the existing cache overlay is being replaced, create a new cache overlay
 			if(tileTableCacheOverlay.getParent().isAdded()){
