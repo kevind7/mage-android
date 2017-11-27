@@ -122,7 +122,6 @@ import mil.nga.giat.mage.map.marker.MyHistoricalLocationMarkerCollection;
 import mil.nga.giat.mage.map.marker.ObservationMarkerCollection;
 import mil.nga.giat.mage.map.marker.PointCollection;
 import mil.nga.giat.mage.map.marker.StaticGeometryCollection;
-import mil.nga.giat.mage.map.preference.MapPreferencesActivity;
 import mil.nga.giat.mage.observation.ObservationEditActivity;
 import mil.nga.giat.mage.sdk.Temporal;
 import mil.nga.giat.mage.sdk.datastore.layer.Layer;
@@ -154,6 +153,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 
 	private MAGE mage;
 	private MapView mapView;
+	private ViewGroup mapOverlaysContainer;
 	private GoogleMap map;
 	private boolean mapInitialized = false;
 	private View searchLayout;
@@ -218,6 +218,8 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 			}
 		});
 
+		mapOverlaysContainer = (ViewGroup) view.findViewById(R.id.map_overlays_container);
+
 		mage = (MAGE) getActivity().getApplication();
 		locationService = mage.getLocationService();
 
@@ -237,7 +239,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 		mapWrapper = new GoogleMapWrapper(getActivity().getApplicationContext());
 		mapWrapper.addView(view);
 
-		mapView = (MapView) view.findViewById(R.id.mapView);
+		mapView = (MapView) view.findViewById(R.id.map_view);
 		Bundle mapState = (savedInstanceState != null) ? savedInstanceState.getBundle(MAP_VIEW_STATE): null;
 		mapView.onCreate(mapState);
 		mapView.getMapAsync(this);
@@ -739,12 +741,15 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 	public void onClick(View view) {
 		// close keyboard
 		hideKeyboard();
-		switch (view.getId()) {
-		case R.id.map_settings: {
-			Intent intent = new Intent(getActivity(), MapPreferencesActivity.class);
-			startActivity(intent);
-			break;
-		}
+		int target = view.getId();
+		if (target == R.id.map_settings) {
+//			Intent intent = new Intent(getActivity(), MapPreferencesActivity.class);
+//			startActivity(intent);
+//			mapOverlaysContainer.setVisibility(View.VISIBLE);
+			MapOverlaysFragment overlays = new MapOverlaysFragment();
+			getChildFragmentManager().beginTransaction()
+				.add(R.id.map_overlays_container, overlays, MapOverlaysFragment.class.getSimpleName())
+				.commit();
 		}
 	}
 

@@ -1,58 +1,41 @@
-<android.support.design.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
-                xmlns:app="http://schemas.android.com/apk/res-auto"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent">
+<RelativeLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:context="mil.nga.giat.mage.map.MapFragment"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
 
-    <FrameLayout
-        android:id="@+id/map_event_holder"
+    <com.google.android.gms.maps.MapView
+        android:id="@+id/map_view"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
+        android:layout_height="280dp"
+        app:uiCompass="false"
+        app:uiRotateGestures="false"
+        app:uiTiltGestures="false"
+        />
 
     <RelativeLayout
+        android:id="@+id/search_layout"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_below="@id/map_event_holder">
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="80dp"
+        android:layout_marginRight="80dp"
+        android:layout_marginTop="20dp"
+        android:orientation="horizontal"
+        android:visibility="gone"
+        android:background="@drawable/map_search_foreground">
 
-        <com.google.android.gms.maps.MapView
-            android:id="@+id/mapView"
+        <android.support.v7.widget.SearchView
+            android:id="@+id/search_view"
             android:layout_width="match_parent"
-            android:layout_height="fill_parent"
-            app:uiCompass="false"
-            app:uiRotateGestures="false"
-            app:uiTiltGestures="false"/>
-
-        <RelativeLayout
-            android:id="@+id/search_layout"
-            android:layout_width="fill_parent"
             android:layout_height="wrap_content"
-            android:layout_marginLeft="80dp"
-            android:layout_marginRight="80dp"
-            android:layout_marginTop="20dp"
-            android:orientation="horizontal"
-            android:visibility="gone">
-
-                <LinearLayout
-                    android:id="@+id/search_container"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:background="@drawable/map_search_foreground">
-
-                    <android.support.v7.widget.SearchView
-                        android:id="@+id/search_view"
-                        android:layout_width="fill_parent"
-                        android:layout_height="wrap_content"
-                        app:queryHint="Search address"
-                        app:searchIcon="@null"
-                        android:textColor="#A8000000"
-                        android:imeActionLabel="Search"
-                        android:imeOptions="actionSearch"
-                        android:inputType="text" />
-
-                </LinearLayout>
-
-        </RelativeLayout>
+            app:queryHint="Search address"
+            app:searchIcon="@null"
+            android:textColor="#A8000000"
+            android:imeActionLabel="Search"
+            android:imeOptions="actionSearch"
+            android:inputType="text"/>
 
     </RelativeLayout>
 
@@ -60,41 +43,64 @@
         android:id="@+id/map_settings"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="top|start"
-        android:layout_margin="16dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginStart="16dp"
+        android:layout_alignTop="@id/map_view"
+        android:layout_alignStart="@id/map_view"
+        android:src="@drawable/ic_layers_black_24dp"
         app:theme="@style/AppTheme.AlternateFAB"
-        android:src="@drawable/ic_layers_black_24dp" />
+        />
 
     <android.support.design.widget.FloatingActionButton
         android:id="@+id/zoom_button"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="top|start"
-        android:layout_marginTop="88dp"
+        android:layout_gravity="start"
+        android:layout_marginTop="16dp"
         android:layout_marginStart="16dp"
+        android:layout_below="@id/map_settings"
+        android:src="@drawable/ic_my_location_black_24dp"
         app:theme="@style/AppTheme.AlternateFAB"
-        android:src="@drawable/ic_my_location_black_24dp" />
+        />
 
     <android.support.design.widget.FloatingActionButton
         android:id="@+id/map_search_button"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="top|end"
         android:layout_marginTop="16dp"
         android:layout_marginBottom="16dp"
         android:layout_marginEnd="16dp"
+        android:layout_alignTop="@id/map_view"
+        android:layout_alignEnd="@id/map_view"
+        android:src="@drawable/ic_search_black_24dp"
         app:backgroundTint="@color/map_search_button"
         app:theme="@style/AppTheme.AlternateFAB"
-        android:src="@drawable/ic_search_black_24dp" />
+        />
 
     <android.support.design.widget.FloatingActionButton
         android:id="@+id/new_observation_button"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        android:layout_alignBottom="@id/map_view"
+        android:layout_alignEnd="@id/map_view"
+        android:src="@drawable/ic_add_black_24dp"
         app:theme="@style/AppTheme.PrimaryFAB"
-        android:layout_gravity="end|bottom"
-        android:layout_marginBottom="16dp"
-        android:layout_marginEnd="16dp"
-        android:src="@drawable/ic_add_black_24dp" />
+        />
 
-</android.support.design.widget.CoordinatorLayout>
+    <FrameLayout
+        android:id="@+id/map_overlays_container"
+        android:layout_width="match_parent"
+        android:layout_height="220dp"
+        android:background="@color/md_red_900"
+        android:layout_below="@id/map_view"
+        >
+        <fragment
+            android:id="@+id/map_overlays_fragment"
+            android:name="mil.nga.giat.mage.map.MapOverlaysFragment"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            tools:layout="@layout/fragment_map_overlays"/>
+    </FrameLayout>
+
+</RelativeLayout>
