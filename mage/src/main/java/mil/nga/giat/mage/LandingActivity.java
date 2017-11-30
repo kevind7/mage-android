@@ -16,7 +16,6 @@ import android.support.design.widget.BottomNavigationView;
 import android.support.design.widget.NavigationView;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentManager;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.graphics.drawable.RoundedBitmapDrawable;
 import android.support.v4.graphics.drawable.RoundedBitmapDrawableFactory;
@@ -37,8 +36,6 @@ import com.bumptech.glide.request.target.BitmapImageViewTarget;
 import org.apache.commons.lang3.StringUtils;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
 
 import mil.nga.geopackage.validate.GeoPackageValidate;
 import mil.nga.giat.mage.cache.GeoPackageCacheUtils;
@@ -87,20 +84,14 @@ public class LandingActivity extends AppCompatActivity implements NavigationView
 
     private DrawerLayout drawerLayout;
     private BottomNavigationView bottomNavigationView;
-    private List<Fragment> bottomNavigationFragments = new ArrayList<>();
-
+    private int currentTabId = -1;
     private boolean locationPermissionGranted = false;
-    private Uri openUri;
     private String openPath;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_landing);
-
-        bottomNavigationFragments.add(new MapFragment());
-        bottomNavigationFragments.add(new ObservationFeedFragment());
-        bottomNavigationFragments.add(new PeopleFeedFragment());
 
         // TODO investigate moving this call
         // its here because this is the first activity started after login and it ensures
@@ -384,23 +375,24 @@ public class LandingActivity extends AppCompatActivity implements NavigationView
     }
 
     private void switchBottomNavigationFragment(MenuItem item) {
-        Fragment fragment = null;
+        if (currentTabId == item.getItemId()) {
+            return;
+        }
+        Fragment targetTab;
         switch (item.getItemId()) {
             case R.id.map_tab:
-                fragment = bottomNavigationFragments.get(0);
+                targetTab = new MapFragment();
                 break;
             case R.id.observations_tab:
-                fragment = bottomNavigationFragments.get(1);
+                targetTab = new ObservationFeedFragment();
                 break;
             case R.id.people_tab:
-                fragment = bottomNavigationFragments.get(2);
+                targetTab = new PeopleFeedFragment();
                 break;
+            default:
+                return;
         }
-
-        if (fragment != null) {
-            FragmentManager fragmentManager = getSupportFragmentManager();
-            fragmentManager.beginTransaction().replace(R.id.navigation_content, fragment).commit();
-        }
+        getSupportFragmentManager().beginTransaction().replace(R.id.navigation_content, targetTab).commit();
     }
 
     /**
