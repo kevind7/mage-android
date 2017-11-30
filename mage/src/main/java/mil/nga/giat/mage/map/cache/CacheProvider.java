@@ -51,7 +51,7 @@ public class CacheProvider {
             instance = new CacheProvider(context);
             return;
         }
-        throw new Error("attempt to initializeWithAppContext " + CacheProvider.class + " more than once");
+        throw new Error("attempt to initialize " + CacheProvider.class + " singleton more than once");
     }
 
     public static CacheProvider getInstance() {

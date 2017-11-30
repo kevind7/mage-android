@@ -7,11 +7,13 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
 import android.graphics.drawable.Drawable;
 import android.location.Location;
 import android.location.LocationListener;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
+import android.support.annotation.Nullable;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v4.app.Fragment;
 import android.support.v4.content.ContextCompat;
@@ -31,7 +33,7 @@ import android.view.View.OnClickListener;
 import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
 import android.webkit.WebView;
-import android.widget.ImageButton;
+import android.widget.FrameLayout;
 import android.widget.Toast;
 
 import com.google.android.gms.maps.CameraUpdate;
@@ -43,6 +45,7 @@ import com.google.android.gms.maps.GoogleMap.OnMapClickListener;
 import com.google.android.gms.maps.GoogleMap.OnMapLongClickListener;
 import com.google.android.gms.maps.GoogleMap.OnMarkerClickListener;
 import com.google.android.gms.maps.GoogleMap.OnMyLocationButtonClickListener;
+import com.google.android.gms.maps.GoogleMapOptions;
 import com.google.android.gms.maps.LocationSource;
 import com.google.android.gms.maps.MapView;
 import com.google.android.gms.maps.MapsInitializer;
@@ -72,6 +75,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -146,12 +150,12 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 		IObservationEventListener, ILocationEventListener, IStaticFeatureEventListener {
 
 	private static final String LOG_NAME = MapFragment.class.getName();
-
 	private static final String MAP_VIEW_STATE = "MAP_VIEW_STATE";
-
 	private static final int PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION = 1;
+	private static final int MARKER_REFRESH_INTERVAL_SECONDS = 300;
 
 	private MAGE mage;
+	private ViewGroup container;
 	private MapView mapView;
 	private ViewGroup mapOverlaysContainer;
 	private GoogleMap map;
@@ -164,12 +168,11 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 	protected User currentUser = null;
 	private OnLocationChangedListener locationChangedListener;
 
-	private static final int REFRESHMARKERINTERVALINSECONDS = 300;
 	private RefreshMarkersTask refreshLocationsMarkersTask;
 	private RefreshMarkersTask refreshMyHistoricLocationsMarkersTask;
 
 	private final BlockingQueue<Runnable> queue = new ArrayBlockingQueue<>(64);
-	private final ThreadPoolExecutor executor = new ThreadPoolExecutor(8, 8, 10, TimeUnit.SECONDS, queue);
+	private final ExecutorService executor = new ThreadPoolExecutor(1, 2, 10, TimeUnit.SECONDS, queue);
 
 	private PointCollection<Observation> observations;
 	private PointCollection<Pair<mil.nga.giat.mage.sdk.datastore.location.Location, User>> locations;
@@ -185,40 +188,76 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 
 	private FloatingActionButton searchButton;
 	private FloatingActionButton zoomToLocationButton;
+	private FloatingActionButton overlaysButton;
+	private FloatingActionButton newObservationButton;
 	private LocationService locationService;
 
 	SharedPreferences preferences;
 
 	@Override
+	public void onCreate(@Nullable Bundle savedInstanceState) {
+		super.onCreate(savedInstanceState);
+
+		// creating the MapView here should preserve it across configuration/layout changes - onConfigurationChanged()
+		// and avoid redrawing map and markers and whatnot
+		setRetainInstance(true);
+		GoogleMapOptions opts = new GoogleMapOptions()
+			.rotateGesturesEnabled(false)
+			.tiltGesturesEnabled(false)
+			.compassEnabled(false);
+		mapView = new MapView(getContext(), opts);
+		mapView.onCreate(savedInstanceState);
+	}
+
+	@Override
 	public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-		View view = inflater.inflate(R.layout.fragment_map, container, false);
+		this.container = new FrameLayout(getContext());
+		this.container.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+		loadLayoutToContainer(inflater, savedInstanceState);
+		return this.container;
+	}
+
+	@Override
+	public void onConfigurationChanged(Configuration newConfig) {
+		super.onConfigurationChanged(newConfig);
+
+		cleanUpForLayoutChange();
+		LayoutInflater inflater = LayoutInflater.from(getContext());
+		loadLayoutToContainer(inflater, null);
+	}
+
+	private void cleanUpForLayoutChange() {
+		container.removeAllViews();
+		mapWrapper.removeAllViews();
+		mapWrapper.setOnMapPanListener(null);
+		zoomToLocationButton.setOnClickListener(null);
+		searchButton.setOnClickListener(null);
+		overlaysButton.setOnClickListener(null);
+		newObservationButton.setOnClickListener(null);
+	}
+
+	private View loadLayoutToContainer(LayoutInflater inflater, Bundle savedInstanceState) {
+		View view = inflater.inflate(R.layout.fragment_map, container, true);
 
 		setHasOptionsMenu(true);
 
 		staticGeometryCollection = new StaticGeometryCollection();
 
 		zoomToLocationButton = (FloatingActionButton) view.findViewById(R.id.zoom_button);
+		zoomToLocationButton.setOnClickListener(this);
 
 		searchButton = (FloatingActionButton) view.findViewById(R.id.map_search_button);
 		Drawable drawable = DrawableCompat.wrap(searchButton.getDrawable());
 		searchButton.setImageDrawable(drawable);
 		DrawableCompat.setTintList(drawable, AppCompatResources.getColorStateList(getContext(), R.color.map_search_icon));
-
-		searchButton.setOnClickListener(new OnClickListener() {
-			@Override
-			public void onClick(View v) {
-				search();
-			}
-		});
-
-		view.findViewById(R.id.new_observation_button).setOnClickListener(new OnClickListener() {
-			@Override
-			public void onClick(View v) {
-				onNewObservation();
-			}
-		});
+		searchButton.setOnClickListener(this);
 
 		mapOverlaysContainer = (ViewGroup) view.findViewById(R.id.map_overlays_container);
+		overlaysButton = (FloatingActionButton) view.findViewById(R.id.map_settings);
+		overlaysButton.setOnClickListener(this);
+
+		newObservationButton = (FloatingActionButton) view.findViewById(R.id.new_observation_button);
+		newObservationButton.setOnClickListener(this);
 
 		mage = (MAGE) getActivity().getApplication();
 		locationService = mage.getLocationService();
@@ -233,14 +272,9 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 
 		MapsInitializer.initialize(getActivity().getApplicationContext());
 
-		ImageButton mapSettings = (ImageButton) view.findViewById(R.id.map_settings);
-		mapSettings.setOnClickListener(this);
-
-		mapWrapper = new GoogleMapWrapper(getActivity().getApplicationContext());
-		mapWrapper.addView(view);
-
-		mapView = (MapView) view.findViewById(R.id.map_view);
-		Bundle mapState = (savedInstanceState != null) ? savedInstanceState.getBundle(MAP_VIEW_STATE): null;
+		mapWrapper = (GoogleMapWrapper) view.findViewById(R.id.map_wrapper);
+		mapWrapper.addView(mapView);
+		Bundle mapState = (savedInstanceState != null) ? savedInstanceState.getBundle(MAP_VIEW_STATE) : null;
 		mapView.onCreate(mapState);
 		mapView.getMapAsync(this);
 
@@ -248,7 +282,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 		GeoPackageManager geoPackageManager = GeoPackageFactory.getManager(getActivity().getApplicationContext());
 		geoPackageCache = new GeoPackageCache(geoPackageManager);
 
-		return mapWrapper;
+		return view;
 	}
 
 	@Override
@@ -294,6 +328,11 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 	}
 
 	@Override
+	public void onDestroy() {
+		super.onDestroy();
+	}
+
+	@Override
 	public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
 		inflater.inflate(R.menu.filter, menu);
 	}
@@ -317,7 +356,8 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 	}
 
 	private void initializeMap() {
-		if (map == null) return;
+		if (map == null)
+			return;
 
 		if (!mapInitialized) {
 			mapInitialized = true;
@@ -339,7 +379,6 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 					map.animateCamera(cameraUpdate);
 				}
 			});
-
 
 			historicLocations = new MyHistoricalLocationMarkerCollection(getActivity(), map);
 			HistoricLocationLoadTask myHistoricLocationLoad = new HistoricLocationLoadTask(getActivity(), historicLocations);
@@ -378,13 +417,13 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 		// task to refresh location markers every x seconds
 		refreshLocationsMarkersTask = new RefreshMarkersTask(locations);
 		if (!refreshLocationsMarkersTask.isCancelled()) {
-			refreshLocationsMarkersTask.executeOnExecutor(executor, REFRESHMARKERINTERVALINSECONDS);
+			refreshLocationsMarkersTask.executeOnExecutor(executor, MARKER_REFRESH_INTERVAL_SECONDS);
 		}
 
 		// task to refresh my historic location markers every x seconds
 		refreshMyHistoricLocationsMarkersTask = new RefreshMarkersTask(historicLocations);
 		if (!refreshMyHistoricLocationsMarkersTask.isCancelled()) {
-			refreshMyHistoricLocationsMarkersTask.executeOnExecutor(executor, REFRESHMARKERINTERVALINSECONDS);
+			refreshMyHistoricLocationsMarkersTask.executeOnExecutor(executor, MARKER_REFRESH_INTERVAL_SECONDS);
 		}
 
 		// Check if any map preferences changed that I care about
@@ -742,14 +781,18 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 		// close keyboard
 		hideKeyboard();
 		int target = view.getId();
-		if (target == R.id.map_settings) {
-//			Intent intent = new Intent(getActivity(), MapPreferencesActivity.class);
-//			startActivity(intent);
-//			mapOverlaysContainer.setVisibility(View.VISIBLE);
-			MapOverlaysFragment overlays = new MapOverlaysFragment();
-			getChildFragmentManager().beginTransaction()
-				.add(R.id.map_overlays_container, overlays, MapOverlaysFragment.class.getSimpleName())
-				.commit();
+
+		switch (target) {
+			case R.id.map_settings:
+				View overlays = getView().findViewById(R.id.map_overlays_container);
+				overlays.setVisibility(overlays.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE);
+				return;
+			case R.id.map_search_button:
+				search();
+				return;
+			case R.id.new_observation_button:
+				onNewObservation();
+				return;
 		}
 	}
 

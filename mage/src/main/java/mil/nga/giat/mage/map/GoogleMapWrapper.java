@@ -2,6 +2,7 @@ package mil.nga.giat.mage.map;
 
 import android.content.Context;
 import android.support.v4.view.MotionEventCompat;
+import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.widget.FrameLayout;
 
@@ -15,6 +16,10 @@ public class GoogleMapWrapper extends FrameLayout {
 
     public GoogleMapWrapper(Context context) {
         super(context);
+    }
+
+    public GoogleMapWrapper(Context context, AttributeSet attrs) {
+        super(context, attrs);
     }
 
     @Override
