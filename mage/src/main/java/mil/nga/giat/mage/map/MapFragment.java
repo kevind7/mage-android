@@ -179,7 +179,7 @@ public class MapFragment extends Fragment
 	private Location location;
 	private boolean followMe = false;
 	private GoogleMapWrapper mapWrapper;
-	protected User currentUser = null;
+	private User currentUser = null;
 	private OnLocationChangedListener locationChangedListener;
 
 	private ScheduledThreadPoolExecutor executor;
@@ -207,6 +207,8 @@ public class MapFragment extends Fragment
 	@Override
 	public void onCreate(@Nullable Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+
+		mage = (MAGE) getContext().getApplicationContext();
 
 		executor = new ScheduledThreadPoolExecutor(2);
 		executor.setMaximumPoolSize(2);
@@ -243,7 +245,7 @@ public class MapFragment extends Fragment
 		super.onResume();
 
 		try {
-			currentUser = UserHelper.getInstance(getActivity().getApplicationContext()).readCurrentUser();
+			currentUser = UserHelper.getInstance(mage).readCurrentUser();
 		} catch (UserException ue) {
 			Log.e(LOG_NAME, "Could not find current user.", ue);
 		}
@@ -302,7 +304,7 @@ public class MapFragment extends Fragment
 		mapView.onPause();
 
 		CacheProvider.getInstance().unregisterCacheOverlayListener(this);
-		StaticFeatureHelper.getInstance(getActivity().getApplicationContext()).removeListener(this);
+		StaticFeatureHelper.getInstance(mage).removeListener(this);
 
 		if (map != null) {
 			saveMapView();
@@ -326,8 +328,8 @@ public class MapFragment extends Fragment
 	public void onDestroyView() {
 		super.onDestroyView();
 
-		ObservationHelper.getInstance(getActivity().getApplicationContext()).removeListener(this);
-		LocationHelper.getInstance(getActivity().getApplicationContext()).removeListener(this);
+		ObservationHelper.getInstance(mage).removeListener(this);
+		LocationHelper.getInstance(mage).removeListener(this);
 
 		if (observations != null) {
 			observations.clear();
@@ -360,8 +362,6 @@ public class MapFragment extends Fragment
 		currentUser = null;
 		map = null;
 		mapInitialized = false;
-
-		mapView.onDestroy();
 	}
 
 	@Override
@@ -414,10 +414,10 @@ public class MapFragment extends Fragment
 		newObservationButton = (FloatingActionButton) view.findViewById(R.id.new_observation_button);
 		newObservationButton.setOnClickListener(this);
 
-		mage = (MAGE) getActivity().getApplication();
+
 		locationService = mage.getLocationService();
 
-		preferences = PreferenceManager.getDefaultSharedPreferences(getActivity().getApplicationContext());
+		preferences = PreferenceManager.getDefaultSharedPreferences(mage);
 
 		searchLayout = view.findViewById(R.id.search_layout);
 		searchView = (SearchView) view.findViewById(R.id.search_view);
@@ -428,7 +428,7 @@ public class MapFragment extends Fragment
 		mapWrapper = (GoogleMapWrapper) view.findViewById(R.id.map_wrapper);
 		mapWrapper.addView(mapView);
 
-		GeoPackageManager geoPackageManager = GeoPackageFactory.getManager(getActivity().getApplicationContext());
+		GeoPackageManager geoPackageManager = GeoPackageFactory.getManager(mage);
 		geoPackageCache = new GeoPackageCache(geoPackageManager);
 
 		return view;
@@ -509,9 +509,9 @@ public class MapFragment extends Fragment
 			map.setLocationSource(null);
 		}
 
-		ObservationHelper.getInstance(getActivity().getApplicationContext()).addListener(this);
-		LocationHelper.getInstance(getActivity().getApplicationContext()).addListener(this);
-		StaticFeatureHelper.getInstance(getActivity().getApplicationContext()).addListener(this);
+		ObservationHelper.getInstance(mage).addListener(this);
+		LocationHelper.getInstance(mage).addListener(this);
+		StaticFeatureHelper.getInstance(mage).addListener(this);
 		CacheProvider.getInstance().registerCacheOverlayListener(this);
 	}
 
@@ -540,12 +540,12 @@ public class MapFragment extends Fragment
 	}
 
 	private void onNewObservation() {
-		Intent intent = new Intent(getActivity().getApplicationContext(), ObservationEditActivity.class);
+		Intent intent = new Intent(mage, ObservationEditActivity.class);
 		Location l = locationService.getLocation();
 
 		// if there is not a location from the location service, then try to pull one from the database.
 		if (l == null) {
-			List<mil.nga.giat.mage.sdk.datastore.location.Location> tLocations = LocationHelper.getInstance(getActivity().getApplicationContext()).getCurrentUserLocations(1, true);
+			List<mil.nga.giat.mage.sdk.datastore.location.Location> tLocations = LocationHelper.getInstance(mage).getCurrentUserLocations(1, true);
 			if (!tLocations.isEmpty()) {
 				mil.nga.giat.mage.sdk.datastore.location.Location tLocation = tLocations.get(0);
 				Geometry geo = tLocation.getGeometry();
@@ -569,7 +569,7 @@ public class MapFragment extends Fragment
 			l = new Location(l);
 		}
 
-		if (!UserHelper.getInstance(getActivity().getApplicationContext()).isCurrentUserPartOfCurrentEvent()) {
+		if (!UserHelper.getInstance(mage).isCurrentUserPartOfCurrentEvent()) {
 			new AlertDialog.Builder(getActivity())
 				.setTitle(getActivity().getResources().getString(R.string.location_no_event_title))
 				.setMessage(getActivity().getResources().getString(R.string.location_no_event_message))
@@ -581,7 +581,7 @@ public class MapFragment extends Fragment
 			intent.putExtra(ObservationEditActivity.INITIAL_ZOOM, map.getCameraPosition().zoom);
 			startActivity(intent);
 		} else {
-			if (ContextCompat.checkSelfPermission(getActivity().getApplicationContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+			if (ContextCompat.checkSelfPermission(mage, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
 				new AlertDialog.Builder(getActivity())
 						.setTitle(getActivity().getResources().getString(R.string.location_missing_title))
 						.setMessage(getActivity().getResources().getString(R.string.location_missing_message))
@@ -767,14 +767,14 @@ public class MapFragment extends Fragment
 	@Override
 	public void onMapLongClick(LatLng point) {
 		hideKeyboard();
-		if(!UserHelper.getInstance(getActivity().getApplicationContext()).isCurrentUserPartOfCurrentEvent()) {
+		if(!UserHelper.getInstance(mage).isCurrentUserPartOfCurrentEvent()) {
 			new AlertDialog.Builder(getActivity())
 				.setTitle(getActivity().getResources().getString(R.string.location_no_event_title))
 				.setMessage(getActivity().getResources().getString(R.string.location_no_event_message))
 				.setPositiveButton(android.R.string.ok, null)
 				.show();
 		} else {
-			Intent intent = new Intent(getActivity().getApplicationContext(), ObservationEditActivity.class);
+			Intent intent = new Intent(mage, ObservationEditActivity.class);
 			Location l = new Location("manual");
 			l.setAccuracy(0.0f);
 			l.setLatitude(point.latitude);
@@ -1170,7 +1170,7 @@ public class MapFragment extends Fragment
 
 								if(++count >= maxFeaturesPerTable){
 									if(count < totalCount){
-										Toast.makeText(getActivity().getApplicationContext(), featureTableCacheOverlay.getTableName()
+										Toast.makeText(mage, featureTableCacheOverlay.getTableName()
 												+ "- added " + count + " of " + totalCount, Toast.LENGTH_LONG).show();
 									}
 									break;
@@ -1230,7 +1230,7 @@ public class MapFragment extends Fragment
 		removeStaticFeatureLayers();
 
 		try {
-			for (Layer l : LayerHelper.getInstance(getActivity().getApplicationContext()).readByEvent(EventHelper.getInstance(getActivity().getApplicationContext()).getCurrentEvent())) {
+			for (Layer l : LayerHelper.getInstance(mage).readByEvent(EventHelper.getInstance(getActivity().getApplicationContext()).getCurrentEvent())) {
 				onStaticFeatureLayer(l);
 			}
 		} catch (LayerException e) {
@@ -1243,7 +1243,7 @@ public class MapFragment extends Fragment
 
 		Set<String> eventLayerIds = new HashSet<>();
 		try {
-			for (Layer layer : LayerHelper.getInstance(getActivity()).readByEvent(EventHelper.getInstance(getActivity().getApplicationContext()).getCurrentEvent())) {
+			for (Layer layer : LayerHelper.getInstance(mage).readByEvent(EventHelper.getInstance(mage).getCurrentEvent())) {
 				eventLayerIds.add(layer.getRemoteId());
 			}
 		} catch (LayerException e) {
@@ -1275,7 +1275,7 @@ public class MapFragment extends Fragment
 		// The user has asked for this feature layer
 		String layerId = layer.getId().toString();
 		if (layers.contains(layerId) && layer.isLoaded()) {
-			new StaticFeatureLoadTask(getActivity().getApplicationContext(), staticGeometryCollection, map).executeOnExecutor(executor, layer);
+			new StaticFeatureLoadTask(mage, staticGeometryCollection, map).executeOnExecutor(executor, layer);
 		}
 	}
 
