@@ -142,8 +142,11 @@ import mil.nga.giat.mage.sdk.exceptions.UserException;
 import mil.nga.giat.mage.sdk.location.LocationService;
 import mil.nga.wkb.geom.GeometryType;
 
-public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapClickListener, OnMapLongClickListener, OnMarkerClickListener, OnInfoWindowClickListener, OnMapPanListener, OnMyLocationButtonClickListener, OnClickListener, LocationSource, LocationListener, OnCacheOverlayListener,
-		IObservationEventListener, ILocationEventListener, IStaticFeatureEventListener {
+public class MapFragment extends Fragment
+	implements OnMapReadyCallback, OnMapClickListener, OnMapLongClickListener, OnMarkerClickListener,
+	OnInfoWindowClickListener, OnMapPanListener, OnMyLocationButtonClickListener, OnClickListener,
+	LocationSource, LocationListener, OnCacheOverlayListener,
+	IObservationEventListener, ILocationEventListener, IStaticFeatureEventListener {
 
 	private static final String LOG_NAME = MapFragment.class.getName();
 	private static final String MAP_VIEW_STATE = "MAP_VIEW_STATE";
@@ -161,6 +164,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 			if (points.isVisible()) {
 				points.refreshMarkerIcons();
 			}
+			beginMarkerRefresh();
 		}
 	}
 
@@ -217,6 +221,15 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 			.compassEnabled(false);
 		mapView = new MapView(getContext(), opts);
 		mapView.onCreate(savedInstanceState);
+		mapView.getMapAsync(this);
+	}
+
+	@Override
+	public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+		this.container = new FrameLayout(getContext());
+		this.container.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+		loadLayoutToContainer(inflater, savedInstanceState);
+		return this.container;
 	}
 
 	@Override
@@ -236,7 +249,6 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 		}
 
 		mapView.onResume();
-		initializeMap();
 
 		((AppCompatActivity) getActivity()).getSupportActionBar().setSubtitle(getFilterTitle());
 
@@ -270,14 +282,6 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 	}
 
 	@Override
-	public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-		this.container = new FrameLayout(getContext());
-		this.container.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-		loadLayoutToContainer(inflater, savedInstanceState);
-		return this.container;
-	}
-
-	@Override
 	public void onConfigurationChanged(Configuration newConfig) {
 		super.onConfigurationChanged(newConfig);
 
@@ -286,11 +290,97 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 		loadLayoutToContainer(inflater, null);
 	}
 
-	private void beginMarkerRefresh() {
-		getView().postDelayed(new RefreshMarkersRunnable(locations), MARKER_REFRESH_INTERVAL_SECONDS);
-		getView().postDelayed(new RefreshMarkersRunnable(historicLocations), MARKER_REFRESH_INTERVAL_SECONDS);
+	@Override
+	public void onLowMemory() {
+		super.onLowMemory();
+		mapView.onLowMemory();
 	}
-	
+
+	@Override
+	public void onPause() {
+		super.onPause();
+		mapView.onPause();
+
+		CacheProvider.getInstance().unregisterCacheOverlayListener(this);
+		StaticFeatureHelper.getInstance(getActivity().getApplicationContext()).removeListener(this);
+
+		if (map != null) {
+			saveMapView();
+
+			map.setLocationSource(null);
+			if (locationService != null) {
+				locationService.unregisterOnLocationListener(this);
+			}
+
+			mapInitialized = false;
+		}
+	}
+
+	@Override
+	public void onStop() {
+		super.onStop();
+		mapView.onStop();
+	}
+
+	@Override
+	public void onDestroyView() {
+		super.onDestroyView();
+
+		ObservationHelper.getInstance(getActivity().getApplicationContext()).removeListener(this);
+		LocationHelper.getInstance(getActivity().getApplicationContext()).removeListener(this);
+
+		if (observations != null) {
+			observations.clear();
+			observations = null;
+		}
+
+		if (locations != null) {
+			locations.clear();
+			locations = null;
+		}
+
+		if (historicLocations != null) {
+			historicLocations.clear();
+			historicLocations = null;
+		}
+
+		if (searchMarkers != null) {
+			for (Marker m : searchMarkers) {
+				m.remove();
+			}
+			searchMarkers.clear();
+		}
+
+		// Close all open GeoPackages
+		geoPackageCache.closeAll();
+
+		cacheOverlays.clear();
+
+		staticGeometryCollection = null;
+		currentUser = null;
+		map = null;
+		mapInitialized = false;
+
+		mapView.onDestroy();
+	}
+
+	@Override
+	public void onSaveInstanceState(Bundle outState) {
+		super.onSaveInstanceState(outState);
+		mapView.onSaveInstanceState(outState);
+	}
+
+	@Override
+	public void onDestroy() {
+		super.onDestroy();
+		mapView.onDestroy();
+	}
+
+	private void beginMarkerRefresh() {
+		getView().postDelayed(new RefreshMarkersRunnable(locations), MARKER_REFRESH_INTERVAL_SECONDS * 1000);
+		getView().postDelayed(new RefreshMarkersRunnable(historicLocations), MARKER_REFRESH_INTERVAL_SECONDS * 1000);
+	}
+
 	private void cleanUpForLayoutChange() {
 		container.removeAllViews();
 		mapWrapper.removeAllViews();
@@ -335,66 +425,13 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 		searchView.setIconified(false);
 		searchView.clearFocus();
 
-		MapsInitializer.initialize(getActivity().getApplicationContext());
-
 		mapWrapper = (GoogleMapWrapper) view.findViewById(R.id.map_wrapper);
 		mapWrapper.addView(mapView);
-		Bundle mapState = (savedInstanceState != null) ? savedInstanceState.getBundle(MAP_VIEW_STATE) : null;
-		mapView.onCreate(mapState);
-		mapView.getMapAsync(this);
 
-		// Initialize the GeoPackage cache with a GeoPackage manager
 		GeoPackageManager geoPackageManager = GeoPackageFactory.getManager(getActivity().getApplicationContext());
 		geoPackageCache = new GeoPackageCache(geoPackageManager);
 
 		return view;
-	}
-
-	@Override
-	public void onDestroyView() {
-		super.onDestroyView();
-
-		mapView.onDestroy();
-
-		ObservationHelper.getInstance(getActivity().getApplicationContext()).removeListener(this);
-		LocationHelper.getInstance(getActivity().getApplicationContext()).removeListener(this);
-
-		if (observations != null) {
-			observations.clear();
-			observations = null;
-		}
-
-		if (locations != null) {
-			locations.clear();
-			locations = null;
-		}
-
-		if (historicLocations != null) {
-			historicLocations.clear();
-			historicLocations = null;
-		}
-
-		if (searchMarkers != null) {
-			for (Marker m : searchMarkers) {
-				m.remove();
-			}
-			searchMarkers.clear();
-		}
-
-		// Close all open GeoPackages
-		geoPackageCache.closeAll();
-
-		cacheOverlays.clear();
-
-		staticGeometryCollection = null;
-		currentUser = null;
-		map = null;
-		mapInitialized = false;
-	}
-
-	@Override
-	public void onDestroy() {
-		super.onDestroy();
 	}
 
 	@Override
@@ -421,39 +458,22 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 	}
 
 	private void initializeMap() {
-		if (map == null)
+		if (mapInitialized) {
 			return;
-
-		if (!mapInitialized) {
-			mapInitialized = true;
-
-			map.getUiSettings().setMyLocationButtonEnabled(false);
-
-			map.setOnMapClickListener(this);
-			map.setOnMarkerClickListener(this);
-			map.setOnMapLongClickListener(this);
-			map.setOnMyLocationButtonClickListener(this);
-			map.setOnInfoWindowClickListener(this);
-
-			zoomToLocationButton.setOnClickListener(new OnClickListener() {
-				@Override
-				public void onClick(View v) {
-					Location location = locationService.getLocation();
-					LatLng latLng = new LatLng(location.getLatitude(), location.getLongitude());
-					CameraUpdate cameraUpdate = CameraUpdateFactory.newLatLngZoom(latLng, 18);
-					map.animateCamera(cameraUpdate);
-				}
-			});
-
-			historicLocations = new MyHistoricalLocationMarkerCollection(getActivity(), map);
-			HistoricLocationLoadTask myHistoricLocationLoad = new HistoricLocationLoadTask(getActivity(), historicLocations);
-			myHistoricLocationLoad.executeOnExecutor(executor);
-
-			ObservationHelper.getInstance(getActivity().getApplicationContext()).addListener(this);
-			LocationHelper.getInstance(getActivity().getApplicationContext()).addListener(this);
-			CacheProvider.getInstance().registerCacheOverlayListener(this);
-			StaticFeatureHelper.getInstance(getActivity().getApplicationContext()).addListener(this);
 		}
+
+		mapInitialized = true;
+
+		map.getUiSettings().setMyLocationButtonEnabled(false);
+		map.setOnMapClickListener(this);
+		map.setOnMarkerClickListener(this);
+		map.setOnMapLongClickListener(this);
+		map.setOnMyLocationButtonClickListener(this);
+		map.setOnInfoWindowClickListener(this);
+
+		historicLocations = new MyHistoricalLocationMarkerCollection(getActivity(), map);
+		HistoricLocationLoadTask myHistoricLocationLoad = new HistoricLocationLoadTask(getActivity(), historicLocations);
+		myHistoricLocationLoad.executeOnExecutor(executor);
 
 		if (observations != null) {
 			observations.clear();
@@ -488,33 +508,21 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 			map.setMyLocationEnabled(false);
 			map.setLocationSource(null);
 		}
+
+		ObservationHelper.getInstance(getActivity().getApplicationContext()).addListener(this);
+		LocationHelper.getInstance(getActivity().getApplicationContext()).addListener(this);
+		StaticFeatureHelper.getInstance(getActivity().getApplicationContext()).addListener(this);
+		CacheProvider.getInstance().registerCacheOverlayListener(this);
 	}
 
-	@Override
-	public void onLowMemory() {
-		super.onLowMemory();
-		mapView.onLowMemory();
-	}
-
-	@Override
-	public void onPause() {
-		super.onPause();
-
-		mapView.onPause();
-
-		CacheProvider.getInstance().unregisterCacheOverlayListener(this);
-		StaticFeatureHelper.getInstance(getActivity().getApplicationContext()).removeListener(this);
-
-		if (map != null) {
-			saveMapView();
-
-			map.setLocationSource(null);
-			if (locationService != null) {
-				locationService.unregisterOnLocationListener(this);
-			}
-
-			mapInitialized = false;
+	private void onZoom() {
+		if (!mapInitialized) {
+			return;
 		}
+		Location location = locationService.getLocation();
+		LatLng latLng = new LatLng(location.getLatitude(), location.getLongitude());
+		CameraUpdate cameraUpdate = CameraUpdateFactory.newLatLngZoom(latLng, 18);
+		map.animateCamera(cameraUpdate);
 	}
 
 	private void search() {
@@ -784,16 +792,19 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 		int target = view.getId();
 
 		switch (target) {
+			case R.id.zoom_button:
+				onZoom();
+			case R.id.map_search_button:
+				search();
+				return;
 			case R.id.map_settings:
 				View overlays = getView().findViewById(R.id.map_overlays_container);
 				overlays.setVisibility(overlays.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE);
 				return;
-			case R.id.map_search_button:
-				search();
-				return;
 			case R.id.new_observation_button:
 				onNewObservation();
 				return;
+
 		}
 	}
 
