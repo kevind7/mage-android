@@ -20,6 +20,7 @@ def googleMapsApiReleaseKey = hasProperty('RELEASE_MAPS_API_KEY') ? RELEASE_MAPS
 def googleMapsApiDebugKey = hasProperty('DEBUG_MAPS_API_KEY') ? DEBUG_MAPS_API_KEY : ''
 def signedApkPath = hasProperty('SIGNED_APK_PATH') ? SIGNED_APK_PATH : "${project.buildDir}/outputs/apk/${archivesBaseName}-defaults-release.apk"
 def signedDebugApkPath = hasProperty('SIGNED_DEBUG_APK_PATH') ? SIGNED_DEBUG_APK_PATH : "${project.buildDir}/outputs/apk/${archivesBaseName}-defaults-debug.apk"
+String pin = hasProperty('mage.pinned_cert') ? getProperty('mage.pinned_cert') : ''
 
 android {
     compileSdkVersion 25
@@ -51,6 +52,7 @@ android {
             minifyEnabled false
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.txt"
             resValue "string", "GOOGLE_MAPS_ANDROID_API_KEY", googleMapsApiReleaseKey
+            resValue "string", "serverPin", ""
         }
         debug {
             applicationIdSuffix ".debug"
@@ -58,6 +60,7 @@ android {
             minifyEnabled false
             resValue "string", "GOOGLE_MAPS_ANDROID_API_KEY", googleMapsApiDebugKey
             resValue "string", "applicationId", defaultConfig.applicationId + applicationIdSuffix
+            resValue "string", "serverPin", pin
         }
     }
 
@@ -212,8 +215,7 @@ configure extensions.android, {
                 signingConfig signingConfigs.release
             }
         }
-    }
-    else {
+    } else {
         println 'no release keystore configured'
     }
 
@@ -223,8 +225,7 @@ configure extensions.android, {
                 signingConfig null
             }
         }
-    }
-    else if (project.hasProperty('DEBUG_STORE_FILE') && file(project.getProperty('DEBUG_STORE_FILE')).exists()) {
+    } else if (project.hasProperty('DEBUG_STORE_FILE') && file(project.getProperty('DEBUG_STORE_FILE')).exists()) {
         signingConfigs {
             debug {
                 storeFile file(DEBUG_STORE_FILE)
