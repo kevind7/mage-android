@@ -11,6 +11,7 @@ import android.content.res.Configuration;
 import android.graphics.drawable.Drawable;
 import android.location.Location;
 import android.location.LocationListener;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.support.annotation.Nullable;
@@ -48,7 +49,6 @@ import com.google.android.gms.maps.GoogleMap.OnMyLocationButtonClickListener;
 import com.google.android.gms.maps.GoogleMapOptions;
 import com.google.android.gms.maps.LocationSource;
 import com.google.android.gms.maps.MapView;
-import com.google.android.gms.maps.MapsInitializer;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
@@ -73,7 +73,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 
 import mil.nga.geopackage.BoundingBox;
 import mil.nga.geopackage.GeoPackage;
@@ -149,7 +148,6 @@ public class MapFragment extends Fragment
 	IObservationEventListener, ILocationEventListener, IStaticFeatureEventListener {
 
 	private static final String LOG_NAME = MapFragment.class.getName();
-	private static final String MAP_VIEW_STATE = "MAP_VIEW_STATE";
 	private static final int PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION = 1;
 	private static final int MARKER_REFRESH_INTERVAL_SECONDS = 300;
 
@@ -164,14 +162,14 @@ public class MapFragment extends Fragment
 			if (points.isVisible()) {
 				points.refreshMarkerIcons();
 			}
-			beginMarkerRefresh();
+			beginMarkerRefresh(this);
 		}
 	}
 
 	private MAGE mage;
 	private ViewGroup container;
-	private MapView mapView;
 	private ViewGroup mapOverlaysContainer;
+	private MapView mapView;
 	private GoogleMap map;
 	private boolean mapInitialized = false;
 	private View searchLayout;
@@ -182,13 +180,13 @@ public class MapFragment extends Fragment
 	private User currentUser = null;
 	private OnLocationChangedListener locationChangedListener;
 
-	private ScheduledThreadPoolExecutor executor;
-
 	private PointCollection<Observation> observations;
 	private PointCollection<Pair<mil.nga.giat.mage.sdk.datastore.location.Location, User>> locations;
 	private PointCollection<Pair<mil.nga.giat.mage.sdk.datastore.location.Location, User>> historicLocations;
 	private StaticGeometryCollection staticGeometryCollection;
 	private List<Marker> searchMarkers = new ArrayList<>();
+	private RefreshMarkersRunnable refreshLocationsTask;
+	private RefreshMarkersRunnable refreshHistoricLocationsTask;
 
 	private Map<String, CacheOverlay> cacheOverlays = new HashMap<>();
 
@@ -209,10 +207,6 @@ public class MapFragment extends Fragment
 		super.onCreate(savedInstanceState);
 
 		mage = (MAGE) getContext().getApplicationContext();
-
-		executor = new ScheduledThreadPoolExecutor(2);
-		executor.setMaximumPoolSize(2);
-		executor.setExecuteExistingDelayedTasksAfterShutdownPolicy(false);
 
 		// creating the MapView here should preserve it across configuration/layout changes - onConfigurationChanged()
 		// and avoid redrawing map and markers and whatnot
@@ -279,8 +273,6 @@ public class MapFragment extends Fragment
 				return true;
 			}
 		});
-
-		beginMarkerRefresh();
 	}
 
 	@Override
@@ -316,6 +308,11 @@ public class MapFragment extends Fragment
 
 			mapInitialized = false;
 		}
+
+		getView().removeCallbacks(refreshLocationsTask);
+		getView().removeCallbacks(refreshHistoricLocationsTask);
+		refreshLocationsTask = null;
+		refreshHistoricLocationsTask = null;
 	}
 
 	@Override
@@ -357,7 +354,6 @@ public class MapFragment extends Fragment
 		geoPackageCache.closeAll();
 
 		cacheOverlays.clear();
-
 		staticGeometryCollection = null;
 		currentUser = null;
 		map = null;
@@ -376,9 +372,8 @@ public class MapFragment extends Fragment
 		mapView.onDestroy();
 	}
 
-	private void beginMarkerRefresh() {
-		getView().postDelayed(new RefreshMarkersRunnable(locations), MARKER_REFRESH_INTERVAL_SECONDS * 1000);
-		getView().postDelayed(new RefreshMarkersRunnable(historicLocations), MARKER_REFRESH_INTERVAL_SECONDS * 1000);
+	private void beginMarkerRefresh(RefreshMarkersRunnable task) {
+		getView().postDelayed(task, MARKER_REFRESH_INTERVAL_SECONDS * 1000);
 	}
 
 	private void cleanUpForLayoutChange() {
@@ -473,7 +468,7 @@ public class MapFragment extends Fragment
 
 		historicLocations = new MyHistoricalLocationMarkerCollection(getActivity(), map);
 		HistoricLocationLoadTask myHistoricLocationLoad = new HistoricLocationLoadTask(getActivity(), historicLocations);
-		myHistoricLocationLoad.executeOnExecutor(executor);
+		myHistoricLocationLoad.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
 
 		if (observations != null) {
 			observations.clear();
@@ -481,7 +476,7 @@ public class MapFragment extends Fragment
 		observations = new ObservationMarkerCollection(getActivity(), map);
 		ObservationLoadTask observationLoad = new ObservationLoadTask(getActivity(), observations);
 		observationLoad.addFilter(getTemporalFilter("timestamp"));
-		observationLoad.executeOnExecutor(executor);
+		observationLoad.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
 
 		if (locations != null) {
 			locations.clear();
@@ -489,7 +484,7 @@ public class MapFragment extends Fragment
 		locations = new LocationMarkerCollection(getActivity(), map);
 		LocationLoadTask locationLoad = new LocationLoadTask(getActivity(), locations);
 		locationLoad.setFilter(getTemporalFilter("timestamp"));
-		locationLoad.executeOnExecutor(executor);
+		locationLoad.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
 
 		updateMapView();
 		updateStaticFeatureLayers();
@@ -513,6 +508,11 @@ public class MapFragment extends Fragment
 		LocationHelper.getInstance(mage).addListener(this);
 		StaticFeatureHelper.getInstance(mage).addListener(this);
 		CacheProvider.getInstance().registerCacheOverlayListener(this);
+
+		refreshLocationsTask = new RefreshMarkersRunnable(locations);
+		refreshHistoricLocationsTask = new RefreshMarkersRunnable(historicLocations);
+		beginMarkerRefresh(refreshLocationsTask);
+		beginMarkerRefresh(refreshHistoricLocationsTask);
 	}
 
 	private void onZoom() {
@@ -620,7 +620,7 @@ public class MapFragment extends Fragment
 		if (observations != null) {
 			ObservationTask task = new ObservationTask(getActivity(), ObservationTask.Type.ADD, observations);
 			task.addFilter(getTemporalFilter("last_modified"));
-			task.executeOnExecutor(executor, o.toArray(new Observation[o.size()]));
+			task.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, o.toArray(new Observation[o.size()]));
 		}
 	}
 
@@ -629,14 +629,14 @@ public class MapFragment extends Fragment
 		if (observations != null) {
 			ObservationTask task = new ObservationTask(getActivity(), ObservationTask.Type.UPDATE, observations);
 			task.addFilter(getTemporalFilter("last_modified"));
-			task.executeOnExecutor(executor, o);
+			task.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, o);
 		}
 	}
 
 	@Override
 	public void onObservationDeleted(Observation o) {
 		if (observations != null) {
-			new ObservationTask(getActivity(), ObservationTask.Type.DELETE, observations).executeOnExecutor(executor, o);
+			new ObservationTask(getActivity(), ObservationTask.Type.DELETE, observations).executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, o);
 		}
 	}
 
@@ -647,11 +647,11 @@ public class MapFragment extends Fragment
 				if (locations != null) {
 					LocationTask task = new LocationTask(getActivity(), LocationTask.Type.ADD, locations);
 					task.setFilter(getTemporalFilter("timestamp"));
-					task.executeOnExecutor(executor, l);
+					task.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, l);
 				}
 			} else {
 				if (historicLocations != null) {
-					new LocationTask(getActivity(), LocationTask.Type.ADD, historicLocations).executeOnExecutor(executor, l);
+					new LocationTask(getActivity(), LocationTask.Type.ADD, historicLocations).executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, l);
 				}
 			}
 		}
@@ -663,11 +663,11 @@ public class MapFragment extends Fragment
 			if (locations != null) {
 				LocationTask task = new LocationTask(getActivity(), LocationTask.Type.UPDATE, locations);
 				task.setFilter(getTemporalFilter("timestamp"));
-				task.executeOnExecutor(executor, l);
+				task.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, l);
 			}
 		} else {
 			if (historicLocations != null) {
-				new LocationTask(getActivity(), LocationTask.Type.UPDATE, historicLocations).executeOnExecutor(executor, l);
+				new LocationTask(getActivity(), LocationTask.Type.UPDATE, historicLocations).executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, l);
 			}
 		}
 	}
@@ -1275,7 +1275,7 @@ public class MapFragment extends Fragment
 		// The user has asked for this feature layer
 		String layerId = layer.getId().toString();
 		if (layers.contains(layerId) && layer.isLoaded()) {
-			new StaticFeatureLoadTask(mage, staticGeometryCollection, map).executeOnExecutor(executor, layer);
+			new StaticFeatureLoadTask(mage, staticGeometryCollection, map).executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, layer);
 		}
 	}
 
