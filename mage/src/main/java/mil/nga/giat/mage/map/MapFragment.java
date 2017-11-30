@@ -73,11 +73,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 
 import mil.nga.geopackage.BoundingBox;
 import mil.nga.geopackage.GeoPackage;
@@ -154,6 +150,20 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 	private static final int PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION = 1;
 	private static final int MARKER_REFRESH_INTERVAL_SECONDS = 300;
 
+	private class RefreshMarkersRunnable implements Runnable {
+		private final PointCollection<?> points;
+
+		private RefreshMarkersRunnable(PointCollection<?> points) {
+			this.points = points;
+		}
+
+		public void run() {
+			if (points.isVisible()) {
+				points.refreshMarkerIcons();
+			}
+		}
+	}
+
 	private MAGE mage;
 	private ViewGroup container;
 	private MapView mapView;
@@ -168,11 +178,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 	protected User currentUser = null;
 	private OnLocationChangedListener locationChangedListener;
 
-	private RefreshMarkersTask refreshLocationsMarkersTask;
-	private RefreshMarkersTask refreshMyHistoricLocationsMarkersTask;
-
-	private final BlockingQueue<Runnable> queue = new ArrayBlockingQueue<>(64);
-	private final ExecutorService executor = new ThreadPoolExecutor(1, 2, 10, TimeUnit.SECONDS, queue);
+	private ScheduledThreadPoolExecutor executor;
 
 	private PointCollection<Observation> observations;
 	private PointCollection<Pair<mil.nga.giat.mage.sdk.datastore.location.Location, User>> locations;
@@ -192,11 +198,15 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 	private FloatingActionButton newObservationButton;
 	private LocationService locationService;
 
-	SharedPreferences preferences;
+	private SharedPreferences preferences;
 
 	@Override
 	public void onCreate(@Nullable Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+
+		executor = new ScheduledThreadPoolExecutor(2);
+		executor.setMaximumPoolSize(2);
+		executor.setExecuteExistingDelayedTasksAfterShutdownPolicy(false);
 
 		// creating the MapView here should preserve it across configuration/layout changes - onConfigurationChanged()
 		// and avoid redrawing map and markers and whatnot
@@ -207,6 +217,56 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 			.compassEnabled(false);
 		mapView = new MapView(getContext(), opts);
 		mapView.onCreate(savedInstanceState);
+	}
+
+	@Override
+	public void onStart() {
+		super.onStart();
+		mapView.onStart();
+	}
+
+	@Override
+	public void onResume() {
+		super.onResume();
+
+		try {
+			currentUser = UserHelper.getInstance(getActivity().getApplicationContext()).readCurrentUser();
+		} catch (UserException ue) {
+			Log.e(LOG_NAME, "Could not find current user.", ue);
+		}
+
+		mapView.onResume();
+		initializeMap();
+
+		((AppCompatActivity) getActivity()).getSupportActionBar().setSubtitle(getFilterTitle());
+
+		searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+			@Override
+			public boolean onQueryTextSubmit(String query) {
+				if (StringUtils.isNoneBlank(query)) {
+					new GeocoderTask(getActivity(), map, searchMarkers).execute(query);
+				}
+
+				searchView.clearFocus();
+				return true;
+			}
+
+			@Override
+			public boolean onQueryTextChange(String newText) {
+				if (StringUtils.isEmpty(newText)) {
+					if (searchMarkers != null) {
+						for (Marker m : searchMarkers) {
+							m.remove();
+						}
+						searchMarkers.clear();
+					}
+				}
+
+				return true;
+			}
+		});
+
+		beginMarkerRefresh();
 	}
 
 	@Override
@@ -226,6 +286,11 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 		loadLayoutToContainer(inflater, null);
 	}
 
+	private void beginMarkerRefresh() {
+		getView().postDelayed(new RefreshMarkersRunnable(locations), MARKER_REFRESH_INTERVAL_SECONDS);
+		getView().postDelayed(new RefreshMarkersRunnable(historicLocations), MARKER_REFRESH_INTERVAL_SECONDS);
+	}
+	
 	private void cleanUpForLayoutChange() {
 		container.removeAllViews();
 		mapWrapper.removeAllViews();
@@ -414,18 +479,6 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 		locations.setVisibility(preferences.getBoolean(getResources().getString(R.string.showLocationsKey), true));
 		historicLocations.setVisibility(preferences.getBoolean(getResources().getString(R.string.showMyLocationHistoryKey), false));
 
-		// task to refresh location markers every x seconds
-		refreshLocationsMarkersTask = new RefreshMarkersTask(locations);
-		if (!refreshLocationsMarkersTask.isCancelled()) {
-			refreshLocationsMarkersTask.executeOnExecutor(executor, MARKER_REFRESH_INTERVAL_SECONDS);
-		}
-
-		// task to refresh my historic location markers every x seconds
-		refreshMyHistoricLocationsMarkersTask = new RefreshMarkersTask(historicLocations);
-		if (!refreshMyHistoricLocationsMarkersTask.isCancelled()) {
-			refreshMyHistoricLocationsMarkersTask.executeOnExecutor(executor, MARKER_REFRESH_INTERVAL_SECONDS);
-		}
-
 		// Check if any map preferences changed that I care about
 		if (locationService != null && ContextCompat.checkSelfPermission(getActivity().getApplicationContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
 			map.setMyLocationEnabled(true);
@@ -444,61 +497,9 @@ public class MapFragment extends Fragment implements OnMapReadyCallback, OnMapCl
 	}
 
 	@Override
-	public void onResume() {
-		super.onResume();
-
-		try {
-			currentUser = UserHelper.getInstance(getActivity().getApplicationContext()).readCurrentUser();
-		} catch (UserException ue) {
-			Log.e(LOG_NAME, "Could not find current user.", ue);
-		}
-
-		mapView.onResume();
-		initializeMap();
-
-		((AppCompatActivity) getActivity()).getSupportActionBar().setSubtitle(getFilterTitle());
-
-		searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
-			@Override
-			public boolean onQueryTextSubmit(String query) {
-				if (StringUtils.isNoneBlank(query)) {
-					new GeocoderTask(getActivity(), map, searchMarkers).execute(query);
-				}
-
-				searchView.clearFocus();
-				return true;
-			}
-
-			@Override
-			public boolean onQueryTextChange(String newText) {
-				if (StringUtils.isEmpty(newText)) {
-					if (searchMarkers != null) {
-						for (Marker m : searchMarkers) {
-							m.remove();
-						}
-						searchMarkers.clear();
-					}
-				}
-
-				return true;
-			}
-		});
-	}
-
-	@Override
 	public void onPause() {
 		super.onPause();
 
-		if (refreshLocationsMarkersTask != null) {
-			refreshLocationsMarkersTask.cancel(true);
-			refreshLocationsMarkersTask = null;
-		}
-
-		if (refreshMyHistoricLocationsMarkersTask != null) {
-			refreshMyHistoricLocationsMarkersTask.cancel(true);
-			refreshMyHistoricLocationsMarkersTask = null;
-		}
-		
 		mapView.onPause();
 
 		CacheProvider.getInstance().unregisterCacheOverlayListener(this);
