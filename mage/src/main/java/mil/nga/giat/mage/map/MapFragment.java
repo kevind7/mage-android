@@ -71,6 +71,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -144,7 +145,7 @@ import mil.nga.wkb.geom.GeometryType;
 public class MapFragment extends Fragment
 	implements OnMapReadyCallback, OnMapClickListener, OnMapLongClickListener, OnMarkerClickListener,
 	OnInfoWindowClickListener, OnMapPanListener, OnMyLocationButtonClickListener, OnClickListener,
-	LocationSource, LocationListener, OnCacheOverlayListener,
+	LocationSource, LocationListener, OnCacheOverlayListener, SearchView.OnQueryTextListener,
 	IObservationEventListener, ILocationEventListener, IStaticFeatureEventListener {
 
 	private static final String LOG_NAME = MapFragment.class.getName();
@@ -171,7 +172,6 @@ public class MapFragment extends Fragment
 	private ViewGroup mapOverlaysContainer;
 	private MapView mapView;
 	private GoogleMap map;
-	private boolean mapInitialized = false;
 	private View searchLayout;
 	private SearchView searchView;
 	private Location location;
@@ -207,6 +207,10 @@ public class MapFragment extends Fragment
 		super.onCreate(savedInstanceState);
 
 		mage = (MAGE) getContext().getApplicationContext();
+		preferences = PreferenceManager.getDefaultSharedPreferences(mage);
+		locationService = mage.getLocationService();
+		GeoPackageManager geoPackageManager = GeoPackageFactory.getManager(mage);
+		geoPackageCache = new GeoPackageCache(geoPackageManager);
 
 		// creating the MapView here should preserve it across configuration/layout changes - onConfigurationChanged()
 		// and avoid redrawing map and markers and whatnot
@@ -248,31 +252,7 @@ public class MapFragment extends Fragment
 
 		((AppCompatActivity) getActivity()).getSupportActionBar().setSubtitle(getFilterTitle());
 
-		searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
-			@Override
-			public boolean onQueryTextSubmit(String query) {
-				if (StringUtils.isNoneBlank(query)) {
-					new GeocoderTask(getActivity(), map, searchMarkers).execute(query);
-				}
-
-				searchView.clearFocus();
-				return true;
-			}
-
-			@Override
-			public boolean onQueryTextChange(String newText) {
-				if (StringUtils.isEmpty(newText)) {
-					if (searchMarkers != null) {
-						for (Marker m : searchMarkers) {
-							m.remove();
-						}
-						searchMarkers.clear();
-					}
-				}
-
-				return true;
-			}
-		});
+		searchView.setOnQueryTextListener(this);
 	}
 
 	@Override
@@ -297,16 +277,11 @@ public class MapFragment extends Fragment
 
 		CacheProvider.getInstance().unregisterCacheOverlayListener(this);
 		StaticFeatureHelper.getInstance(mage).removeListener(this);
+		locationService.unregisterOnLocationListener(this);
 
 		if (map != null) {
-			saveMapView();
-
+			saveMapPosition();
 			map.setLocationSource(null);
-			if (locationService != null) {
-				locationService.unregisterOnLocationListener(this);
-			}
-
-			mapInitialized = false;
 		}
 
 		getView().removeCallbacks(refreshLocationsTask);
@@ -344,20 +319,25 @@ public class MapFragment extends Fragment
 		}
 
 		if (searchMarkers != null) {
-			for (Marker m : searchMarkers) {
-				m.remove();
-			}
 			searchMarkers.clear();
 		}
+
+		map.setOnMapClickListener(null);
+		map.setOnMarkerClickListener(null);
+		map.setOnMapLongClickListener(null);
+		map.setOnMyLocationButtonClickListener(null);
+		map.setOnInfoWindowClickListener(null);
+		map.clear();
 
 		// Close all open GeoPackages
 		geoPackageCache.closeAll();
 
 		cacheOverlays.clear();
+		cacheOverlays = null;
+		staticGeometryCollection.clear();
 		staticGeometryCollection = null;
 		currentUser = null;
 		map = null;
-		mapInitialized = false;
 	}
 
 	@Override
@@ -381,6 +361,7 @@ public class MapFragment extends Fragment
 		mapWrapper.removeAllViews();
 		mapWrapper.setOnMapPanListener(null);
 		zoomToLocationButton.setOnClickListener(null);
+		searchView.setOnQueryTextListener(null);
 		searchButton.setOnClickListener(null);
 		overlaysButton.setOnClickListener(null);
 		newObservationButton.setOnClickListener(null);
@@ -409,11 +390,6 @@ public class MapFragment extends Fragment
 		newObservationButton = (FloatingActionButton) view.findViewById(R.id.new_observation_button);
 		newObservationButton.setOnClickListener(this);
 
-
-		locationService = mage.getLocationService();
-
-		preferences = PreferenceManager.getDefaultSharedPreferences(mage);
-
 		searchLayout = view.findViewById(R.id.search_layout);
 		searchView = (SearchView) view.findViewById(R.id.search_view);
 		searchView.setIconifiedByDefault(false);
@@ -422,9 +398,6 @@ public class MapFragment extends Fragment
 
 		mapWrapper = (GoogleMapWrapper) view.findViewById(R.id.map_wrapper);
 		mapWrapper.addView(mapView);
-
-		GeoPackageManager geoPackageManager = GeoPackageFactory.getManager(mage);
-		geoPackageCache = new GeoPackageCache(geoPackageManager);
 
 		return view;
 	}
@@ -449,16 +422,6 @@ public class MapFragment extends Fragment
 	@Override
 	public void onMapReady(GoogleMap googleMap) {
 		map = googleMap;
-		initializeMap();
-	}
-
-	private void initializeMap() {
-		if (mapInitialized) {
-			return;
-		}
-
-		mapInitialized = true;
-
 		map.getUiSettings().setMyLocationButtonEnabled(false);
 		map.setOnMapClickListener(this);
 		map.setOnMarkerClickListener(this);
@@ -486,7 +449,7 @@ public class MapFragment extends Fragment
 		locationLoad.setFilter(getTemporalFilter("timestamp"));
 		locationLoad.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
 
-		updateMapView();
+		loadLastMapPosition();
 		updateStaticFeatureLayers();
 
 		// Set visibility on map markers as preferences may have changed
@@ -515,8 +478,32 @@ public class MapFragment extends Fragment
 		beginMarkerRefresh(refreshHistoricLocationsTask);
 	}
 
+	@Override
+	public boolean onQueryTextSubmit(String query) {
+		if (StringUtils.isNoneBlank(query)) {
+			new GeocoderTask(getActivity(), map, searchMarkers).execute(query);
+		}
+
+		searchView.clearFocus();
+		return true;
+	}
+
+	@Override
+	public boolean onQueryTextChange(String newText) {
+		if (StringUtils.isEmpty(newText)) {
+			if (searchMarkers != null) {
+				for (Marker m : searchMarkers) {
+					m.remove();
+				}
+				searchMarkers.clear();
+			}
+		}
+
+		return true;
+	}
+
 	private void onZoom() {
-		if (!mapInitialized) {
+		if (map == null) {
 			return;
 		}
 		Location location = locationService.getLocation();
@@ -1279,39 +1266,40 @@ public class MapFragment extends Fragment
 		}
 	}
 
-	private void updateMapView() {
+	private void loadLastMapPosition() {
 		// Check the map type
 		map.setMapType(preferences.getInt(getString(R.string.baseLayerKey), getResources().getInteger(R.integer.baseLayerDefaultValue)));
 
 		// Check the map location and zoom
 		String xyz = preferences.getString(getString(R.string.recentMapXYZKey), getString(R.string.recentMapXYZDefaultValue));
-		if (xyz != null) {
-			String[] values = StringUtils.split(xyz, ",");
-			LatLng latLng = new LatLng(0.0, 0.0);
-			if(values.length > 1) {
-				try {
-					latLng = new LatLng(Double.valueOf(values[1]), Double.valueOf(values[0]));
-				} catch (NumberFormatException nfe) {
-					Log.e(LOG_NAME, "Could not parse lon,lat: " + String.valueOf(values[1]) + ", " + String.valueOf(values[0]));
-				}
-			}
-			float zoom = 1.0f;
-			if(values.length > 2) {
-				try {
-					zoom = Float.valueOf(values[2]);
-				} catch (NumberFormatException nfe) {
-					Log.e(LOG_NAME, "Could not parse zoom level: " + String.valueOf(values[2]));
-				}
-			}
-			map.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, zoom));
+		if (xyz == null) {
+			return;
 		}
+
+		String[] values = xyz.split(",");
+		LatLng latLng = new LatLng(0.0, 0.0);
+		if(values.length > 1) {
+			try {
+				latLng = new LatLng(Double.valueOf(values[1]), Double.valueOf(values[0]));
+			} catch (NumberFormatException nfe) {
+				Log.e(LOG_NAME, "Could not parse lon,lat: " + String.valueOf(values[1]) + ", " + String.valueOf(values[0]));
+			}
+		}
+		float zoom = 1.0f;
+		if(values.length > 2) {
+			try {
+				zoom = Float.valueOf(values[2]);
+			} catch (NumberFormatException nfe) {
+				Log.e(LOG_NAME, "Could not parse zoom level: " + String.valueOf(values[2]));
+			}
+		}
+		map.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, zoom));
 	}
 
-	private void saveMapView() {
+	private void saveMapPosition() {
 		CameraPosition position = map.getCameraPosition();
-
-		String xyz = new StringBuilder().append(Double.valueOf(position.target.longitude).toString()).append(",").append(Double.valueOf(position.target.latitude).toString()).append(",").append(Float.valueOf(position.zoom).toString()).toString();
-		preferences.edit().putString(getResources().getString(R.string.recentMapXYZKey), xyz).commit();
+		String xyz = String.format(Locale.US, "%f,%f,%f", position.target.longitude, position.target.latitude, position.zoom);
+		preferences.edit().putString(getResources().getString(R.string.recentMapXYZKey), xyz).apply();
 	}
 
 	@Override
