@@ -163,7 +163,7 @@ public class MapFragment extends Fragment
 			if (points.isVisible()) {
 				points.refreshMarkerIcons();
 			}
-			beginMarkerRefresh(this);
+			scheduleMarkerRefresh(this);
 		}
 	}
 
@@ -221,7 +221,6 @@ public class MapFragment extends Fragment
 			.compassEnabled(false);
 		mapView = new MapView(getContext(), opts);
 		mapView.onCreate(savedInstanceState);
-		mapView.getMapAsync(this);
 	}
 
 	@Override
@@ -249,6 +248,7 @@ public class MapFragment extends Fragment
 		}
 
 		mapView.onResume();
+		mapView.getMapAsync(this);
 
 		((AppCompatActivity) getActivity()).getSupportActionBar().setSubtitle(getFilterTitle());
 
@@ -352,7 +352,7 @@ public class MapFragment extends Fragment
 		mapView.onDestroy();
 	}
 
-	private void beginMarkerRefresh(RefreshMarkersRunnable task) {
+	private void scheduleMarkerRefresh(RefreshMarkersRunnable task) {
 		getView().postDelayed(task, MARKER_REFRESH_INTERVAL_SECONDS * 1000);
 	}
 
@@ -421,30 +421,26 @@ public class MapFragment extends Fragment
 
 	@Override
 	public void onMapReady(GoogleMap googleMap) {
-		map = googleMap;
-		map.getUiSettings().setMyLocationButtonEnabled(false);
-		map.setOnMapClickListener(this);
-		map.setOnMarkerClickListener(this);
-		map.setOnMapLongClickListener(this);
-		map.setOnMyLocationButtonClickListener(this);
-		map.setOnInfoWindowClickListener(this);
-
-		historicLocations = new MyHistoricalLocationMarkerCollection(getActivity(), map);
-		HistoricLocationLoadTask myHistoricLocationLoad = new HistoricLocationLoadTask(getActivity(), historicLocations);
-		myHistoricLocationLoad.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
-
-		if (observations != null) {
-			observations.clear();
+		if (map == null) {
+			map = googleMap;
+			map.getUiSettings().setMyLocationButtonEnabled(false);
+			map.setOnMapClickListener(this);
+			map.setOnMarkerClickListener(this);
+			map.setOnMapLongClickListener(this);
+			map.setOnMyLocationButtonClickListener(this);
+			map.setOnInfoWindowClickListener(this);
+			observations = new ObservationMarkerCollection(getActivity(), map);
+			historicLocations = new MyHistoricalLocationMarkerCollection(getActivity(), map);
+			locations = new LocationMarkerCollection(getActivity(), map);
 		}
-		observations = new ObservationMarkerCollection(getActivity(), map);
+
 		ObservationLoadTask observationLoad = new ObservationLoadTask(getActivity(), observations);
 		observationLoad.addFilter(getTemporalFilter("timestamp"));
 		observationLoad.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
 
-		if (locations != null) {
-			locations.clear();
-		}
-		locations = new LocationMarkerCollection(getActivity(), map);
+		HistoricLocationLoadTask myHistoricLocationLoad = new HistoricLocationLoadTask(getActivity(), historicLocations);
+		myHistoricLocationLoad.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+
 		LocationLoadTask locationLoad = new LocationLoadTask(getActivity(), locations);
 		locationLoad.setFilter(getTemporalFilter("timestamp"));
 		locationLoad.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
@@ -458,7 +454,7 @@ public class MapFragment extends Fragment
 		historicLocations.setVisibility(preferences.getBoolean(getResources().getString(R.string.showMyLocationHistoryKey), false));
 
 		// Check if any map preferences changed that I care about
-		if (locationService != null && ContextCompat.checkSelfPermission(getActivity().getApplicationContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+		if (ContextCompat.checkSelfPermission(mage, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
 			map.setMyLocationEnabled(true);
 			map.setLocationSource(this);
 			locationService.registerOnLocationListener(this);
@@ -474,8 +470,8 @@ public class MapFragment extends Fragment
 
 		refreshLocationsTask = new RefreshMarkersRunnable(locations);
 		refreshHistoricLocationsTask = new RefreshMarkersRunnable(historicLocations);
-		beginMarkerRefresh(refreshLocationsTask);
-		beginMarkerRefresh(refreshHistoricLocationsTask);
+		scheduleMarkerRefresh(refreshLocationsTask);
+		scheduleMarkerRefresh(refreshHistoricLocationsTask);
 	}
 
 	@Override
