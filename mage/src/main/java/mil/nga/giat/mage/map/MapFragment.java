@@ -275,8 +275,10 @@ public class MapFragment extends Fragment
 		super.onPause();
 		mapView.onPause();
 
-		CacheProvider.getInstance().unregisterCacheOverlayListener(this);
+		ObservationHelper.getInstance(mage).removeListener(this);
+		LocationHelper.getInstance(mage).removeListener(this);
 		StaticFeatureHelper.getInstance(mage).removeListener(this);
+		CacheProvider.getInstance().unregisterCacheOverlayListener(this);
 		locationService.unregisterOnLocationListener(this);
 
 		if (map != null) {
@@ -299,9 +301,6 @@ public class MapFragment extends Fragment
 	@Override
 	public void onDestroyView() {
 		super.onDestroyView();
-
-		ObservationHelper.getInstance(mage).removeListener(this);
-		LocationHelper.getInstance(mage).removeListener(this);
 
 		if (observations != null) {
 			observations.clear();
@@ -432,6 +431,10 @@ public class MapFragment extends Fragment
 			observations = new ObservationMarkerCollection(getActivity(), map);
 			historicLocations = new MyHistoricalLocationMarkerCollection(getActivity(), map);
 			locations = new LocationMarkerCollection(getActivity(), map);
+			ObservationHelper.getInstance(mage).addListener(this);
+			LocationHelper.getInstance(mage).addListener(this);
+			StaticFeatureHelper.getInstance(mage).addListener(this);
+			CacheProvider.getInstance().registerCacheOverlayListener(this);
 		}
 
 		ObservationLoadTask observationLoad = new ObservationLoadTask(getActivity(), observations);
@@ -462,11 +465,6 @@ public class MapFragment extends Fragment
 			map.setMyLocationEnabled(false);
 			map.setLocationSource(null);
 		}
-
-		ObservationHelper.getInstance(mage).addListener(this);
-		LocationHelper.getInstance(mage).addListener(this);
-		StaticFeatureHelper.getInstance(mage).addListener(this);
-		CacheProvider.getInstance().registerCacheOverlayListener(this);
 
 		refreshLocationsTask = new RefreshMarkersRunnable(locations);
 		refreshHistoricLocationsTask = new RefreshMarkersRunnable(historicLocations);
@@ -1213,7 +1211,7 @@ public class MapFragment extends Fragment
 		removeStaticFeatureLayers();
 
 		try {
-			for (Layer l : LayerHelper.getInstance(mage).readByEvent(EventHelper.getInstance(getActivity().getApplicationContext()).getCurrentEvent())) {
+			for (Layer l : LayerHelper.getInstance(mage).readByEvent(EventHelper.getInstance(mage).getCurrentEvent())) {
 				onStaticFeatureLayer(l);
 			}
 		} catch (LayerException e) {
