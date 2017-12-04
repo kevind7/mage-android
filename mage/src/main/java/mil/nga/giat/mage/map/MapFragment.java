@@ -15,7 +15,10 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.support.annotation.Nullable;
+import android.support.constraint.ConstraintLayout;
+import android.support.constraint.ConstraintSet;
 import android.support.design.widget.FloatingActionButton;
+import android.support.transition.TransitionManager;
 import android.support.v4.app.Fragment;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.graphics.drawable.DrawableCompat;
@@ -202,6 +205,10 @@ public class MapFragment extends Fragment
 
 	private SharedPreferences preferences;
 
+	private ConstraintLayout constraintLayout;
+	private ConstraintSet layoutOverlaysCollapsed = new ConstraintSet();
+	private ConstraintSet layoutOverlaysExpanded = new ConstraintSet();
+
 	@Override
 	public void onCreate(@Nullable Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -221,6 +228,8 @@ public class MapFragment extends Fragment
 			.compassEnabled(false);
 		mapView = new MapView(getContext(), opts);
 		mapView.onCreate(savedInstanceState);
+
+		setHasOptionsMenu(true);
 	}
 
 	@Override
@@ -367,38 +376,39 @@ public class MapFragment extends Fragment
 	}
 
 	private View loadLayoutToContainer(LayoutInflater inflater, Bundle savedInstanceState) {
-		View view = inflater.inflate(R.layout.fragment_map, container, true);
-
-		setHasOptionsMenu(true);
+		constraintLayout = (ConstraintLayout) inflater.inflate(R.layout.fragment_map, container, false);
+		layoutOverlaysCollapsed.clone(constraintLayout);
+		layoutOverlaysExpanded.load(getContext(), R.layout.fragment_map_expanded_overlays);
 
 		staticGeometryCollection = new StaticGeometryCollection();
 
-		zoomToLocationButton = (FloatingActionButton) view.findViewById(R.id.zoom_button);
+		zoomToLocationButton = (FloatingActionButton) constraintLayout.findViewById(R.id.zoom_button);
 		zoomToLocationButton.setOnClickListener(this);
 
-		searchButton = (FloatingActionButton) view.findViewById(R.id.map_search_button);
+		searchButton = (FloatingActionButton) constraintLayout.findViewById(R.id.map_search_button);
 		Drawable drawable = DrawableCompat.wrap(searchButton.getDrawable());
 		searchButton.setImageDrawable(drawable);
 		DrawableCompat.setTintList(drawable, AppCompatResources.getColorStateList(getContext(), R.color.map_search_icon));
 		searchButton.setOnClickListener(this);
 
-		mapOverlaysContainer = (ViewGroup) view.findViewById(R.id.map_overlays_container);
-		overlaysButton = (FloatingActionButton) view.findViewById(R.id.map_settings);
+		mapOverlaysContainer = (ViewGroup) constraintLayout.findViewById(R.id.map_overlays_container);
+		overlaysButton = (FloatingActionButton) constraintLayout.findViewById(R.id.map_settings);
 		overlaysButton.setOnClickListener(this);
 
-		newObservationButton = (FloatingActionButton) view.findViewById(R.id.new_observation_button);
+		newObservationButton = (FloatingActionButton) constraintLayout.findViewById(R.id.new_observation_button);
 		newObservationButton.setOnClickListener(this);
 
-		searchLayout = view.findViewById(R.id.search_layout);
-		searchView = (SearchView) view.findViewById(R.id.search_view);
+		searchLayout = constraintLayout.findViewById(R.id.search_layout);
+		searchView = (SearchView) constraintLayout.findViewById(R.id.search_view);
 		searchView.setIconifiedByDefault(false);
 		searchView.setIconified(false);
 		searchView.clearFocus();
 
-		mapWrapper = (GoogleMapWrapper) view.findViewById(R.id.map_wrapper);
+		mapWrapper = (GoogleMapWrapper) constraintLayout.findViewById(R.id.map_wrapper);
 		mapWrapper.addView(mapView);
 
-		return view;
+		container.addView(constraintLayout);
+		return container;
 	}
 
 	@Override
@@ -766,6 +776,8 @@ public class MapFragment extends Fragment
 		}
 	}
 
+	private boolean overlaysExpanded = false;
+
 	@Override
 	public void onClick(View view) {
 		// close keyboard
@@ -780,7 +792,14 @@ public class MapFragment extends Fragment
 				return;
 			case R.id.map_settings:
 				View overlays = getView().findViewById(R.id.map_overlays_container);
-				overlays.setVisibility(overlays.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE);
+				TransitionManager.beginDelayedTransition(constraintLayout);
+				if (overlaysExpanded) {
+					layoutOverlaysCollapsed.applyTo(constraintLayout);
+				}
+				else {
+					layoutOverlaysExpanded.applyTo(constraintLayout);
+				}
+				overlaysExpanded = !overlaysExpanded;
 				return;
 			case R.id.new_observation_button:
 				onNewObservation();
