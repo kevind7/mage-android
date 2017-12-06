@@ -67,13 +67,29 @@ public class CacheProvider {
         this.context = context;
     }
 
+    public void tryImportCacheFile(File cacheFile) {
+
+        // Handle GeoPackage files by linking them to their current location
+        if (GeoPackageValidate.hasGeoPackageExtension(cacheFile)) {
+
+            String cacheName = GeoPackageCacheUtils.importGeoPackage(context, cacheFile);
+            if (cacheName != null) {
+                refreshAndEnableOverlay(cacheName);
+            }
+        }
+    }
+
+    public Long idOfCacheOverlay(CacheOverlay overlay) {
+        return cacheIds.get(overlay);
+    }
+
     public void registerCacheOverlayListener(OnCacheOverlayListener listener) {
         cacheOverlayListeners.add(listener);
         if (cacheOverlays != null)
             listener.onCacheOverlay(cacheOverlays);
     }
 
-    public void removeCacheOverlay(String name){
+    public void removeCacheOverlay(String name) {
         if (cacheOverlays == null) {
             return;
         }
@@ -101,8 +117,12 @@ public class CacheProvider {
         task.execute();
     }
 
-    private void setCacheOverlays(List<CacheOverlay> cacheOverlays) {
-        this.cacheOverlays = cacheOverlays;
+    private void setCacheOverlays(List<CacheOverlay> update) {
+        Set<CacheOverlay> updateSet = new HashSet<>(update);
+        cacheOverlays.retainAll(updateSet);
+        updateSet.removeAll(cacheOverlays);
+        cacheOverlays.addAll(updateSet);
+        cacheIds.keySet().retainAll(this.cacheOverlays);
         for (OnCacheOverlayListener listener : cacheOverlayListeners) {
             listener.onCacheOverlay(cacheOverlays);
         }

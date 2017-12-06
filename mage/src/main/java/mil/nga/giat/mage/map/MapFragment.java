@@ -1096,7 +1096,7 @@ public class MapFragment extends Fragment
 	 */
 	private void addGeoPackageFeatureCacheOverlay(Map<String, CacheOverlay> enabledCacheOverlays, GeoPackageFeatureTableCacheOverlay featureTableCacheOverlay, GeoPackage geoPackage){
 		// Retrieve the cache overlay if it already exists (and remove from cache overlays)
-		CacheOverlay cacheOverlay = cacheOverlays.remove(featureTableCacheOverlay.getTableName());
+		CacheOverlay cacheOverlay = cacheOverlays.remove(featureTableCacheOverlay.getOverlayName());
 		if(cacheOverlay != null){
 			// If the existing cache overlay is being replaced, create a new cache overlay
 			if(featureTableCacheOverlay.getParent().isAdded()){
@@ -1107,7 +1107,7 @@ public class MapFragment extends Fragment
 					// Add the existing linked tile cache overlays
 					addGeoPackageTileCacheOverlay(enabledCacheOverlays, linkedTileTable, geoPackage, true);
 				}
-				cacheOverlays.remove(linkedTileTable.getTableName());
+				cacheOverlays.remove(linkedTileTable.getOverlayName());
 			}
 		}
 		if(cacheOverlay == null) {

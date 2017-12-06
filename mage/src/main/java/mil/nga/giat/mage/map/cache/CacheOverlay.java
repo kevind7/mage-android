@@ -15,6 +15,17 @@ import java.util.List;
 public abstract class CacheOverlay {
 
     /**
+     * Build the cache overlayName of a child
+     *
+     * @param name      cache overlay name
+     * @param childName child cache overlay name
+     * @return
+     */
+    public static String buildChildCacheName(String name, String childName) {
+        return name + "-" + childName;
+    }
+
+    /**
      * Name of the cache overlay
      */
     private final String overlayName;
@@ -146,17 +157,6 @@ public abstract class CacheOverlay {
     @Override
     public int hashCode() {
         return getOverlayName().hashCode();
-    }
-
-    /**
-     * Build the cache overlayName of a child
-     *
-     * @param name      cache overlay name
-     * @param childName child cache overlay name
-     * @return
-     */
-    public static String buildChildCacheName(String name, String childName) {
-        return name + "-" + childName;
     }
 
 }

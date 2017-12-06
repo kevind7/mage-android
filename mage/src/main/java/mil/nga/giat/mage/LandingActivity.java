@@ -37,8 +37,6 @@ import org.apache.commons.lang3.StringUtils;
 
 import java.io.File;
 
-import mil.nga.geopackage.validate.GeoPackageValidate;
-import mil.nga.giat.mage.cache.GeoPackageCacheUtils;
 import mil.nga.giat.mage.event.ChangeEventActivity;
 import mil.nga.giat.mage.help.HelpActivity;
 import mil.nga.giat.mage.login.LoginActivity;
@@ -365,6 +363,7 @@ public class LandingActivity extends AppCompatActivity implements NavigationView
             super.onBackPressed();
         }
     }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode == CHANGE_EVENT_REQUEST) {
@@ -378,8 +377,9 @@ public class LandingActivity extends AppCompatActivity implements NavigationView
         if (currentTabId == item.getItemId()) {
             return;
         }
+        currentTabId = item.getItemId();
         Fragment targetTab;
-        switch (item.getItemId()) {
+        switch (currentTabId) {
             case R.id.map_tab:
                 targetTab = new MapFragment();
                 break;
@@ -401,20 +401,12 @@ public class LandingActivity extends AppCompatActivity implements NavigationView
     private void handleOpenFilePath() {
 
         File cacheFile = new File(openPath);
-
-        // Handle GeoPackage files by linking them to their current location
-        if (GeoPackageValidate.hasGeoPackageExtension(cacheFile)) {
-
-            String cacheName = GeoPackageCacheUtils.importGeoPackage(this, cacheFile);
-            if (cacheName != null) {
-                CacheProvider.getInstance().refreshAndEnableOverlay(cacheName);
-            }
-        }
+        CacheProvider.getInstance().tryImportCacheFile(cacheFile);
     }
 
     public static void deleteAllData(Context context) {
         DaoStore.getInstance(context).resetDatabase();
-        PreferenceManager.getDefaultSharedPreferences(context).edit().clear().commit();
+        PreferenceManager.getDefaultSharedPreferences(context).edit().clear().apply();
         deleteDir(MediaUtility.getMediaStageDirectory(context));
         clearApplicationData(context);
     }
