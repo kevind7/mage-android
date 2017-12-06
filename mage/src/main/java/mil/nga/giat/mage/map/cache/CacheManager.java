@@ -36,25 +36,25 @@ import mil.nga.wkb.geom.GeometryType;
 /**
  * Created by wnewman on 2/11/16.
  */
-public class CacheProvider {
+public class CacheManager {
 
     public interface OnCacheOverlayListener {
         void onCacheOverlay(List<CacheOverlay> cacheOverlays);
     }
 
-    private static final String LOG_NAME = CacheProvider.class.getName();
+    private static final String LOG_NAME = CacheManager.class.getName();
 
-    private static CacheProvider instance = null;
+    private static CacheManager instance = null;
 
     public static synchronized void initializeWithAppContext(Application context) {
         if (instance == null) {
-            instance = new CacheProvider(context);
+            instance = new CacheManager(context);
             return;
         }
-        throw new Error("attempt to initialize " + CacheProvider.class + " singleton more than once");
+        throw new Error("attempt to initialize " + CacheManager.class + " singleton more than once");
     }
 
-    public static CacheProvider getInstance() {
+    public static CacheManager getInstance() {
         return instance;
     }
 
@@ -63,7 +63,7 @@ public class CacheProvider {
     private Map<CacheOverlay, Long> cacheIds = new HashMap<>();
     private Collection<OnCacheOverlayListener> cacheOverlayListeners = new ArrayList<>();
 
-    private CacheProvider(Application context) {
+    private CacheManager(Application context) {
         this.context = context;
     }
 

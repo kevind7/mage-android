@@ -9,7 +9,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 
-import mil.nga.giat.mage.map.cache.CacheProvider;
+import mil.nga.giat.mage.map.cache.CacheManager;
 import mil.nga.giat.mage.sdk.utils.MediaUtility;
 
 /**
@@ -82,7 +82,7 @@ public class CopyCacheStreamTask extends AsyncTask<Void, Void, String> {
     @Override
     protected void onPostExecute(String result) {
         if (result == null) {
-            CacheProvider.getInstance().refreshAndEnableOverlay(cacheName);
+            CacheManager.getInstance().refreshAndEnableOverlay(cacheName);
         }
     }
 

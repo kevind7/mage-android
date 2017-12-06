@@ -114,8 +114,8 @@ import mil.nga.giat.mage.filter.FilterActivity;
 import mil.nga.giat.mage.map.GoogleMapWrapper.OnMapPanListener;
 import mil.nga.giat.mage.map.cache.CacheOverlay;
 import mil.nga.giat.mage.map.cache.CacheOverlayType;
-import mil.nga.giat.mage.map.cache.CacheProvider;
-import mil.nga.giat.mage.map.cache.CacheProvider.OnCacheOverlayListener;
+import mil.nga.giat.mage.map.cache.CacheManager;
+import mil.nga.giat.mage.map.cache.CacheManager.OnCacheOverlayListener;
 import mil.nga.giat.mage.map.cache.GeoPackageCacheOverlay;
 import mil.nga.giat.mage.map.cache.GeoPackageFeatureTableCacheOverlay;
 import mil.nga.giat.mage.map.cache.GeoPackageTileTableCacheOverlay;
@@ -287,7 +287,7 @@ public class MapFragment extends Fragment
 		ObservationHelper.getInstance(mage).removeListener(this);
 		LocationHelper.getInstance(mage).removeListener(this);
 		StaticFeatureHelper.getInstance(mage).removeListener(this);
-		CacheProvider.getInstance().unregisterCacheOverlayListener(this);
+		CacheManager.getInstance().unregisterCacheOverlayListener(this);
 		locationService.unregisterOnLocationListener(this);
 
 		if (map != null) {
@@ -444,7 +444,7 @@ public class MapFragment extends Fragment
 			ObservationHelper.getInstance(mage).addListener(this);
 			LocationHelper.getInstance(mage).addListener(this);
 			StaticFeatureHelper.getInstance(mage).addListener(this);
-			CacheProvider.getInstance().registerCacheOverlayListener(this);
+			CacheManager.getInstance().registerCacheOverlayListener(this);
 		}
 
 		ObservationLoadTask observationLoad = new ObservationLoadTask(getActivity(), observations);

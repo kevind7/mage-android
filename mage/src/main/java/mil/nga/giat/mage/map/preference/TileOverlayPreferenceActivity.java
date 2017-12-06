@@ -36,8 +36,8 @@ import mil.nga.geopackage.factory.GeoPackageFactory;
 import mil.nga.giat.mage.R;
 import mil.nga.giat.mage.cache.CacheUtils;
 import mil.nga.giat.mage.map.cache.CacheOverlay;
-import mil.nga.giat.mage.map.cache.CacheProvider;
-import mil.nga.giat.mage.map.cache.CacheProvider.OnCacheOverlayListener;
+import mil.nga.giat.mage.map.cache.CacheManager;
+import mil.nga.giat.mage.map.cache.CacheManager.OnCacheOverlayListener;
 import mil.nga.giat.mage.map.cache.GeoPackageCacheOverlay;
 import mil.nga.giat.mage.map.cache.XYZDirectoryCacheOverlay;
 import mil.nga.giat.mage.sdk.utils.StorageUtility;
@@ -131,7 +131,7 @@ public class TileOverlayPreferenceActivity extends AppCompatActivity  {
             // before I register as the call back will set it to enabled
             // the problem is that onResume gets called before this so my menu is
             // not yet setup and I will not have a handle on this button
-            CacheProvider.getInstance().registerCacheOverlayListener(this);
+            CacheManager.getInstance().registerCacheOverlayListener(this);
         }
 
         @Override
@@ -141,7 +141,7 @@ public class TileOverlayPreferenceActivity extends AppCompatActivity  {
                     item.setEnabled(false);
                     progressBar.setVisibility(View.VISIBLE);
                     listView.setEnabled(false);
-                    CacheProvider.getInstance().refreshTileOverlays();
+                    CacheManager.getInstance().refreshTileOverlays();
                     return true;
                 default:
                     return super.onOptionsItemSelected(item);
@@ -152,7 +152,7 @@ public class TileOverlayPreferenceActivity extends AppCompatActivity  {
         public void onDestroy() {
             super.onDestroy();
 
-            CacheProvider.getInstance().unregisterCacheOverlayListener(this);
+            CacheManager.getInstance().unregisterCacheOverlayListener(this);
         }
 
         @Override
@@ -192,7 +192,7 @@ public class TileOverlayPreferenceActivity extends AppCompatActivity  {
             switch (requestCode) {
                 case PERMISSIONS_REQUEST_READ_EXTERNAL_STORAGE: {
                     if(grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                        CacheProvider.getInstance().refreshTileOverlays();
+                        CacheManager.getInstance().refreshTileOverlays();
                     };
 
                     break;
@@ -303,7 +303,7 @@ public class TileOverlayPreferenceActivity extends AppCompatActivity  {
 
             }
 
-            CacheProvider.getInstance().refreshTileOverlays();
+            CacheManager.getInstance().refreshTileOverlays();
         }
 
         /**

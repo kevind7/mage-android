@@ -8,7 +8,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
-import android.content.res.Resources;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.support.multidex.MultiDexApplication;
@@ -28,7 +27,7 @@ import javax.net.ssl.TrustManagerFactory;
 
 import mil.nga.giat.mage.login.LoginActivity;
 import mil.nga.giat.mage.login.SignupActivity;
-import mil.nga.giat.mage.map.cache.CacheProvider;
+import mil.nga.giat.mage.map.cache.CacheManager;
 import mil.nga.giat.mage.observation.ObservationNotificationListener;
 import mil.nga.giat.mage.sdk.datastore.observation.ObservationHelper;
 import mil.nga.giat.mage.sdk.datastore.user.User;
@@ -106,7 +105,7 @@ public class MAGE extends MultiDexApplication implements IUserEventListener, App
 			}
 		});
 
-        CacheProvider.initializeWithAppContext(this);
+        CacheManager.initializeWithAppContext(this);
 
 		registerActivityLifecycleCallbacks(this);
 

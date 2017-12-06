@@ -9,7 +9,7 @@ import java.io.File;
 import mil.nga.geopackage.GeoPackageConstants;
 import mil.nga.geopackage.io.GeoPackageIOUtils;
 import mil.nga.geopackage.validate.GeoPackageValidate;
-import mil.nga.giat.mage.map.cache.CacheProvider;
+import mil.nga.giat.mage.map.cache.CacheManager;
 import mil.nga.giat.mage.sdk.utils.MediaUtility;
 
 /**
@@ -48,7 +48,7 @@ public class CacheUtils {
                     cacheFile.delete();
                 }
                 String cacheName = MediaUtility.getFileNameWithoutExtension(cacheFile);
-                CacheProvider.getInstance().removeCacheOverlay(cacheName);
+                CacheManager.getInstance().removeCacheOverlay(cacheName);
 
                 // Copy the file in a background task
                 CopyCacheStreamTask task = new CopyCacheStreamTask(context, uri, cacheFile, cacheName);
