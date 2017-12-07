@@ -26,21 +26,14 @@ import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 
-import mil.nga.geopackage.GeoPackageManager;
-import mil.nga.geopackage.factory.GeoPackageFactory;
 import mil.nga.giat.mage.R;
-import mil.nga.giat.mage.cache.CacheUtils;
-import mil.nga.giat.mage.map.cache.CacheOverlay;
 import mil.nga.giat.mage.map.cache.CacheManager;
 import mil.nga.giat.mage.map.cache.CacheManager.OnCacheOverlayListener;
-import mil.nga.giat.mage.map.cache.GeoPackageCacheOverlay;
-import mil.nga.giat.mage.map.cache.XYZDirectoryCacheOverlay;
-import mil.nga.giat.mage.sdk.utils.StorageUtility;
+import mil.nga.giat.mage.map.cache.CacheOverlay;
 
 public class TileOverlayPreferenceActivity extends AppCompatActivity  {
 
@@ -156,10 +149,9 @@ public class TileOverlayPreferenceActivity extends AppCompatActivity  {
         }
 
         @Override
-        public void onCacheOverlay(List<CacheOverlay> cacheOverlays) {
-
+        public void onCacheOverlay(Set<CacheOverlay> overlaySet) {
+            List<CacheOverlay> cacheOverlays = new ArrayList<>(overlaySet);
             overlayAdapter = new OverlayAdapter(getActivity(), cacheOverlays);
-
             listView.setAdapter(overlayAdapter);
             listView.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
                 @Override
@@ -255,32 +247,6 @@ public class TileOverlayPreferenceActivity extends AppCompatActivity  {
             deleteDialog.show();
         }
 
-        /**
-         * Delete the XYZ cache overlay
-         * @param xyzCacheOverlay
-         */
-        private void deleteXYZCacheOverlay(XYZDirectoryCacheOverlay xyzCacheOverlay){
-
-            File directory = xyzCacheOverlay.getDirectory();
-
-            if(directory.canWrite()){
-                deleteFile(directory);
-            }
-
-        }
-
-        /**
-         * Delete the base directory file
-         * @param base directory
-         */
-        private void deleteFile(File base) {
-            if (base.isDirectory()) {
-                for (File file : base.listFiles()) {
-                    deleteFile(file);
-                }
-            }
-            base.delete();
-        }
 
         /**
          * Delete the cache overlay
@@ -294,11 +260,13 @@ public class TileOverlayPreferenceActivity extends AppCompatActivity  {
             switch(cacheOverlay.getType()) {
 
                 case XYZ_DIRECTORY:
-                    deleteXYZCacheOverlay((XYZDirectoryCacheOverlay)cacheOverlay);
+                    // TODO: moved to XYZDirectoryCacheProvider
+//                    deleteXYZCacheOverlay((XYZDirectoryCacheOverlay)cacheOverlay);
                     break;
 
                 case GEOPACKAGE:
-                    deleteGeoPackageCacheOverlay((GeoPackageCacheOverlay)cacheOverlay);
+                    // TODO: moved to GeoPackageCacheProvider
+//                    deleteGeoPackageCacheOverlay((GeoPackageCacheOverlay)cacheOverlay);
                     break;
 
             }
@@ -306,45 +274,6 @@ public class TileOverlayPreferenceActivity extends AppCompatActivity  {
             CacheManager.getInstance().refreshTileOverlays();
         }
 
-        /**
-         * Delete the GeoPackage cache overlay
-         * @param geoPackageCacheOverlay
-         */
-        private void deleteGeoPackageCacheOverlay(GeoPackageCacheOverlay geoPackageCacheOverlay){
-
-            String database = geoPackageCacheOverlay.getOverlayName();
-
-            // Get the GeoPackage file
-            GeoPackageManager manager = GeoPackageFactory.getManager(getActivity());
-            File path = manager.getFile(database);
-
-            // Delete the cache from the GeoPackage manager
-            manager.delete(database);
-
-            // Attempt to delete the cache file if it is in the cache directory
-            File pathDirectory = path.getParentFile();
-            if(path.canWrite() && pathDirectory != null) {
-                Map<StorageUtility.StorageType, File> storageLocations = StorageUtility.getWritableStorageLocations();
-                for (File storageLocation : storageLocations.values()) {
-                    File root = new File(storageLocation, getString(R.string.overlay_cache_directory));
-                    if (root.equals(pathDirectory)) {
-                        path.delete();
-                        break;
-                    }
-                }
-            }
-
-            // Check internal/external application storage
-            File applicationCacheDirectory = CacheUtils.getApplicationCacheDirectory(getActivity());
-            if (applicationCacheDirectory != null && applicationCacheDirectory.exists()) {
-                for (File cache : applicationCacheDirectory.listFiles()) {
-                    if (cache.equals(path)) {
-                        path.delete();
-                        break;
-                    }
-                }
-            }
-        }
 
     }
 

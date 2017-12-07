@@ -884,7 +884,7 @@ public class MapFragment extends Fragment
 	}
 
 	@Override
-	public void onCacheOverlay(List<CacheOverlay> cacheOverlays) {
+	public void onCacheOverlay(Set<CacheOverlay> cacheOverlays) {
 
 		// Add all overlays that are in the preferences
 

@@ -28,6 +28,9 @@ import javax.net.ssl.TrustManagerFactory;
 import mil.nga.giat.mage.login.LoginActivity;
 import mil.nga.giat.mage.login.SignupActivity;
 import mil.nga.giat.mage.map.cache.CacheManager;
+import mil.nga.giat.mage.map.cache.DefaultCacheLocationProvider;
+import mil.nga.giat.mage.map.cache.GeoPackageCacheProvider;
+import mil.nga.giat.mage.map.cache.XYZDirectoryCacheProvider;
 import mil.nga.giat.mage.observation.ObservationNotificationListener;
 import mil.nga.giat.mage.sdk.datastore.observation.ObservationHelper;
 import mil.nga.giat.mage.sdk.datastore.user.User;
@@ -105,7 +108,11 @@ public class MAGE extends MultiDexApplication implements IUserEventListener, App
 			}
 		});
 
-        CacheManager.initializeWithAppContext(this);
+        CacheManager.initialize(new CacheManager.Config()
+			.context(this)
+			.providers(new XYZDirectoryCacheProvider())
+			.providers(new GeoPackageCacheProvider(this))
+			.cacheLocations(new DefaultCacheLocationProvider(this)));
 
 		registerActivityLifecycleCallbacks(this);
 
