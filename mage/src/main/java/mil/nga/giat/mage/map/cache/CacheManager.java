@@ -85,7 +85,7 @@ public class CacheManager {
     private final Set<CacheOverlay> cacheOverlays = new HashSet<>();
     private final Collection<OnCacheOverlayListener> cacheOverlayListeners = new ArrayList<>();
 
-    private CacheManager(Config config) {
+    public CacheManager(Config config) {
         context = config.context;
         cacheLocations = config.cacheLocations;
         providers.addAll(config.providers);
@@ -167,16 +167,9 @@ public class CacheManager {
         }
     }
 
-    public final class FindCacheOverlaysTask extends AsyncTask<Void, Void, Set<CacheOverlay>> {
-
-        private final Set<String> overlaysToEnable;
+    private final class FindCacheOverlaysTask extends AsyncTask<Void, Void, Set<CacheOverlay>> {
 
         FindCacheOverlaysTask() {
-            this(Collections.<String>emptySet());
-        }
-
-        FindCacheOverlaysTask(Collection<String> overlaysToEnable) {
-            this.overlaysToEnable = new TreeSet<>(overlaysToEnable);
         }
 
         @Override
@@ -196,59 +189,59 @@ public class CacheManager {
 
             // TODO: move this to CacheOverlayMapManager, or some such map-specific linkage
             // Set what should be enabled based on preferences.
-            boolean update = false;
-            SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(context);
-            Set<String> updatedEnabledOverlays = new HashSet<>();
-            updatedEnabledOverlays.addAll(preferences.getStringSet(context.getString(R.string.tileOverlaysKey), Collections.<String>emptySet()));
-            Set<String> enabledOverlays = new HashSet<>();
-            enabledOverlays.addAll(updatedEnabledOverlays);
-
-            // Determine which caches are enabled
-            for (CacheOverlay cacheOverlay : overlays) {
-
-                // Check and enable the cache
-                String cacheName = cacheOverlay.getOverlayName();
-                if (enabledOverlays.remove(cacheName)) {
-                    cacheOverlay.setEnabled(true);
-                }
-
-                // Check the child caches
-                for (CacheOverlay childCache : cacheOverlay.getChildren()) {
-                    if (enabledOverlays.remove(childCache.getOverlayName())) {
-                        childCache.setEnabled(true);
-                        cacheOverlay.setEnabled(true);
-                    }
-                }
-
-                // Check for new caches to enable in the overlays and preferences
-                if (overlaysToEnable.contains(cacheName)) {
-
-                    update = true;
-                    cacheOverlay.setEnabled(true);
-                    cacheOverlay.setAdded(true);
-                    if (cacheOverlay.isSupportsChildren()) {
-                        for (CacheOverlay childCache : cacheOverlay.getChildren()) {
-                            childCache.setEnabled(true);
-                            updatedEnabledOverlays.add(childCache.getOverlayName());
-                        }
-                    } else {
-                        updatedEnabledOverlays.add(cacheName);
-                    }
-                }
-            }
-
-            // Remove overlays in the preferences that no longer exist
-            if (!enabledOverlays.isEmpty()) {
-                updatedEnabledOverlays.removeAll(enabledOverlays);
-                update = true;
-            }
-
-            // If new enabled cache overlays, update them in the preferences
-            if (update) {
-                SharedPreferences.Editor editor = preferences.edit();
-                editor.putStringSet(context.getString(R.string.tileOverlaysKey), updatedEnabledOverlays);
-                editor.apply();
-            }
+//            boolean update = false;
+//            SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(context);
+//            Set<String> updatedEnabledOverlays = new HashSet<>();
+//            updatedEnabledOverlays.addAll(preferences.getStringSet(context.getString(R.string.tileOverlaysKey), Collections.<String>emptySet()));
+//            Set<String> enabledOverlays = new HashSet<>();
+//            enabledOverlays.addAll(updatedEnabledOverlays);
+//
+//            // Determine which caches are enabled
+//            for (CacheOverlay cacheOverlay : overlays) {
+//
+//                // Check and enable the cache
+//                String cacheName = cacheOverlay.getOverlayName();
+//                if (enabledOverlays.remove(cacheName)) {
+//                    cacheOverlay.setEnabled(true);
+//                }
+//
+//                // Check the child caches
+//                for (CacheOverlay childCache : cacheOverlay.getChildren()) {
+//                    if (enabledOverlays.remove(childCache.getOverlayName())) {
+//                        childCache.setEnabled(true);
+//                        cacheOverlay.setEnabled(true);
+//                    }
+//                }
+//
+//                // Check for new caches to enable in the overlays and preferences
+//                if (overlaysToEnable.contains(cacheName)) {
+//
+//                    update = true;
+//                    cacheOverlay.setEnabled(true);
+//                    cacheOverlay.setAdded(true);
+//                    if (cacheOverlay.isSupportsChildren()) {
+//                        for (CacheOverlay childCache : cacheOverlay.getChildren()) {
+//                            childCache.setEnabled(true);
+//                            updatedEnabledOverlays.add(childCache.getOverlayName());
+//                        }
+//                    } else {
+//                        updatedEnabledOverlays.add(cacheName);
+//                    }
+//                }
+//            }
+//
+//            // Remove overlays in the preferences that no longer exist
+//            if (!enabledOverlays.isEmpty()) {
+//                updatedEnabledOverlays.removeAll(enabledOverlays);
+//                update = true;
+//            }
+//
+//            // If new enabled cache overlays, update them in the preferences
+//            if (update) {
+//                SharedPreferences.Editor editor = preferences.edit();
+//                editor.putStringSet(context.getString(R.string.tileOverlaysKey), updatedEnabledOverlays);
+//                editor.apply();
+//            }
 
             return overlays;
         }

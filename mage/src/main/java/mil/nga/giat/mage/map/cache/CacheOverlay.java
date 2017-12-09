@@ -21,7 +21,7 @@ public abstract class CacheOverlay {
      * @param childName child cache overlay name
      * @return
      */
-    public static String buildChildCacheName(String name, String childName) {
+    static String buildChildCacheName(String name, String childName) {
         return name + "-" + childName;
     }
 
@@ -33,7 +33,7 @@ public abstract class CacheOverlay {
     /**
      * Cache type
      */
-    private final CacheOverlayType type;
+    private final Class<? extends CacheProvider> type;
 
     /**
      * True when enabled
@@ -52,14 +52,12 @@ public abstract class CacheOverlay {
 
     /**
      * Constructor
-     *
-     * @param overlayName             overlayName
-     * @param type             cache type
+     *  @param overlayName             overlayName
      * @param supportsChildren true if cache overlay with children caches
      */
-    protected CacheOverlay(String overlayName, CacheOverlayType type, boolean supportsChildren) {
-        this.overlayName = overlayName;
+    protected CacheOverlay(Class<? extends CacheProvider> type, String overlayName, boolean supportsChildren) {
         this.type = type;
+        this.overlayName = overlayName;
         this.supportsChildren = supportsChildren;
     }
 
@@ -72,7 +70,7 @@ public abstract class CacheOverlay {
         return overlayName;
     }
 
-    public CacheOverlayType getType() {
+    public Class<? extends CacheProvider> getType() {
         return type;
     }
 
@@ -159,4 +157,7 @@ public abstract class CacheOverlay {
         return getOverlayName().hashCode();
     }
 
+    public boolean isTypeOf(Class<? extends CacheProvider> providerType) {
+        return providerType.isAssignableFrom(getType());
+    }
 }

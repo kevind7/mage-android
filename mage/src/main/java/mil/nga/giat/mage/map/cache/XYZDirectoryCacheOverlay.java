@@ -30,7 +30,7 @@ public class XYZDirectoryCacheOverlay extends CacheOverlay {
      * @param directory tile directory
      */
     public XYZDirectoryCacheOverlay(String name, File directory) {
-        super(name, CacheOverlayType.XYZ_DIRECTORY, false);
+        super(XYZDirectoryCacheProvider.class, name, false);
         this.directory = directory;
     }
 

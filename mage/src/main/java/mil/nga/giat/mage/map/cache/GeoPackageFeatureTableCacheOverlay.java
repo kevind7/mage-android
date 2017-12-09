@@ -26,7 +26,7 @@ public class GeoPackageFeatureTableCacheOverlay extends GeoPackageTableCacheOver
     /**
      * Max zoom for features
      */
-    public static final int MAX_ZOOM = 21;
+    static final int MAX_ZOOM = 21;
 
     /**
      * Indexed flag, true when the feature table is indexed
@@ -69,8 +69,8 @@ public class GeoPackageFeatureTableCacheOverlay extends GeoPackageTableCacheOver
      * @param indexed      indexed flag
      * @param geometryType geometry type
      */
-    public GeoPackageFeatureTableCacheOverlay(String name, String geoPackage, String tableName, int count, int minZoom, boolean indexed, GeometryType geometryType) {
-        super(name, geoPackage, tableName, CacheOverlayType.GEOPACKAGE_FEATURE_TABLE, count, minZoom, MAX_ZOOM);
+    GeoPackageFeatureTableCacheOverlay(String name, String geoPackage, String tableName, int count, int minZoom, boolean indexed, GeometryType geometryType) {
+        super(name, geoPackage, tableName, count, minZoom, MAX_ZOOM);
         this.indexed = indexed;
         this.geometryType = geometryType;
     }

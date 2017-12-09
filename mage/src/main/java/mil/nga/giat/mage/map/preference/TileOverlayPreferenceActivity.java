@@ -34,6 +34,8 @@ import mil.nga.giat.mage.R;
 import mil.nga.giat.mage.map.cache.CacheManager;
 import mil.nga.giat.mage.map.cache.CacheManager.OnCacheOverlayListener;
 import mil.nga.giat.mage.map.cache.CacheOverlay;
+import mil.nga.giat.mage.map.cache.GeoPackageCacheProvider;
+import mil.nga.giat.mage.map.cache.XYZDirectoryCacheProvider;
 
 public class TileOverlayPreferenceActivity extends AppCompatActivity  {
 
@@ -257,17 +259,13 @@ public class TileOverlayPreferenceActivity extends AppCompatActivity  {
             progressBar.setVisibility(View.VISIBLE);
             listView.setEnabled(false);
 
-            switch(cacheOverlay.getType()) {
-
-                case XYZ_DIRECTORY:
-                    // TODO: moved to XYZDirectoryCacheProvider
+            if (cacheOverlay.isTypeOf(XYZDirectoryCacheProvider.class)) {
+                // TODO: moved to XYZDirectoryCacheProvider
 //                    deleteXYZCacheOverlay((XYZDirectoryCacheOverlay)cacheOverlay);
-                    break;
-
-                case GEOPACKAGE:
+            }
+            else if (cacheOverlay.isTypeOf(GeoPackageCacheProvider.class)) {
                     // TODO: moved to GeoPackageCacheProvider
 //                    deleteGeoPackageCacheOverlay((GeoPackageCacheOverlay)cacheOverlay);
-                    break;
 
             }
 

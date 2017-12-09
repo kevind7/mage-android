@@ -112,14 +112,15 @@ import mil.nga.giat.mage.filter.DateTimeFilter;
 import mil.nga.giat.mage.filter.Filter;
 import mil.nga.giat.mage.filter.FilterActivity;
 import mil.nga.giat.mage.map.GoogleMapWrapper.OnMapPanListener;
-import mil.nga.giat.mage.map.cache.CacheOverlay;
-import mil.nga.giat.mage.map.cache.CacheOverlayType;
 import mil.nga.giat.mage.map.cache.CacheManager;
 import mil.nga.giat.mage.map.cache.CacheManager.OnCacheOverlayListener;
+import mil.nga.giat.mage.map.cache.CacheOverlay;
 import mil.nga.giat.mage.map.cache.GeoPackageCacheOverlay;
+import mil.nga.giat.mage.map.cache.GeoPackageCacheProvider;
 import mil.nga.giat.mage.map.cache.GeoPackageFeatureTableCacheOverlay;
 import mil.nga.giat.mage.map.cache.GeoPackageTileTableCacheOverlay;
 import mil.nga.giat.mage.map.cache.XYZDirectoryCacheOverlay;
+import mil.nga.giat.mage.map.cache.XYZDirectoryCacheProvider;
 import mil.nga.giat.mage.map.marker.LocationMarkerCollection;
 import mil.nga.giat.mage.map.marker.MyHistoricalLocationMarkerCollection;
 import mil.nga.giat.mage.map.marker.ObservationMarkerCollection;
@@ -900,25 +901,22 @@ public class MapFragment extends Fragment
 		for (CacheOverlay cacheOverlay : cacheOverlays) {
 
 			// If this cache overlay potentially replaced by a new version
-			if(cacheOverlay.isAdded()){
-				if(cacheOverlay.getType() == CacheOverlayType.GEOPACKAGE){
+			if (cacheOverlay.isAdded()) {
+				if (cacheOverlay.getType().equals(GeoPackageCacheProvider.class)) {
 					geoPackageCache.close(cacheOverlay.getOverlayName());
 				}
 			}
 
+			// TODO: move to CacheProvider impls
 			// The user has asked for this overlay
 			if (cacheOverlay.isEnabled()) {
 
 				// Handle each type of cache overlay
-				switch(cacheOverlay.getType()) {
-
-					case XYZ_DIRECTORY:
-						addXYZDirectoryCacheOverlay(enabledCacheOverlays, (XYZDirectoryCacheOverlay) cacheOverlay);
-						break;
-
-					case GEOPACKAGE:
-						addGeoPackageCacheOverlay(enabledCacheOverlays, enabledGeoPackages, (GeoPackageCacheOverlay)cacheOverlay);
-						break;
+				if (cacheOverlay.isTypeOf(XYZDirectoryCacheProvider.class)) {
+					addXYZDirectoryCacheOverlay(enabledCacheOverlays, (XYZDirectoryCacheOverlay) cacheOverlay);
+				}
+				else if (cacheOverlay.isTypeOf(GeoPackageCacheProvider.class)) {
+					addGeoPackageCacheOverlay(enabledCacheOverlays, enabledGeoPackages, (GeoPackageCacheOverlay) cacheOverlay);
 				}
 			}
 
@@ -983,6 +981,7 @@ public class MapFragment extends Fragment
 	 * @param enabledCacheOverlays
 	 * @param enabledGeoPackages
 	 * @param geoPackageCacheOverlay
+	 * TODO: move to GeoPackageCacheProvider and related classes
 	 */
 	private void addGeoPackageCacheOverlay(Map<String, CacheOverlay> enabledCacheOverlays, Set<String> enabledGeoPackages, GeoPackageCacheOverlay geoPackageCacheOverlay){
 
@@ -996,15 +995,14 @@ public class MapFragment extends Fragment
 				enabledGeoPackages.add(geoPackage.getName());
 
 				// Handle tile and feature tables
-				switch(tableCacheOverlay.getType()){
-					case GEOPACKAGE_TILE_TABLE:
-						addGeoPackageTileCacheOverlay(enabledCacheOverlays, (GeoPackageTileTableCacheOverlay)tableCacheOverlay, geoPackage, false);
-						break;
-					case GEOPACKAGE_FEATURE_TABLE:
-						addGeoPackageFeatureCacheOverlay(enabledCacheOverlays, (GeoPackageFeatureTableCacheOverlay)tableCacheOverlay, geoPackage);
-						break;
-					default:
-						throw new UnsupportedOperationException("Unsupported GeoPackage type: " + tableCacheOverlay.getType());
+				if (tableCacheOverlay instanceof GeoPackageTileTableCacheOverlay) {
+					addGeoPackageTileCacheOverlay(enabledCacheOverlays, (GeoPackageTileTableCacheOverlay) tableCacheOverlay, geoPackage, false);
+				}
+				else if (tableCacheOverlay instanceof GeoPackageFeatureTableCacheOverlay) {
+					addGeoPackageFeatureCacheOverlay(enabledCacheOverlays, (GeoPackageFeatureTableCacheOverlay) tableCacheOverlay, geoPackage);
+				}
+				else {
+					throw new UnsupportedOperationException("Unsupported GeoPackage type: " + tableCacheOverlay.getType());
 				}
 
 				// If a newly added cache, update the bounding box for zooming
