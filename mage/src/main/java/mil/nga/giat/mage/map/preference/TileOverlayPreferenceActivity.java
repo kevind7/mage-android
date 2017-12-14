@@ -136,7 +136,7 @@ public class TileOverlayPreferenceActivity extends AppCompatActivity  {
                     item.setEnabled(false);
                     progressBar.setVisibility(View.VISIBLE);
                     listView.setEnabled(false);
-                    CacheManager.getInstance().refreshTileOverlays();
+                    CacheManager.getInstance().refreshAvailableCaches();
                     return true;
                 default:
                     return super.onOptionsItemSelected(item);
@@ -186,7 +186,7 @@ public class TileOverlayPreferenceActivity extends AppCompatActivity  {
             switch (requestCode) {
                 case PERMISSIONS_REQUEST_READ_EXTERNAL_STORAGE: {
                     if(grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                        CacheManager.getInstance().refreshTileOverlays();
+                        CacheManager.getInstance().refreshAvailableCaches();
                     };
 
                     break;
@@ -269,7 +269,7 @@ public class TileOverlayPreferenceActivity extends AppCompatActivity  {
 
             }
 
-            CacheManager.getInstance().refreshTileOverlays();
+            CacheManager.getInstance().refreshAvailableCaches();
         }
 
 

@@ -98,7 +98,7 @@ public class LandingActivity extends AppCompatActivity implements NavigationView
         // i.e. after TokenExpiredActivity.
         ((MAGE) getApplication()).onLogin();
 
-        CacheManager.getInstance().refreshTileOverlays();
+        CacheManager.getInstance().refreshAvailableCaches();
 
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
@@ -257,7 +257,7 @@ public class LandingActivity extends AppCompatActivity implements NavigationView
             }
             case PERMISSIONS_REQUEST_ACCESS_STORAGE: {
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    CacheManager.getInstance().refreshTileOverlays();
+                    CacheManager.getInstance().refreshAvailableCaches();
                 }
 
                 break;

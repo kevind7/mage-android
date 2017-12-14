@@ -17,9 +17,8 @@ import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -135,10 +134,40 @@ public class CacheManagerTest {
 
         ArgumentCaptor<Set<CacheOverlay>> overlaysCaptor = ArgumentCaptor.forClass(Set.class);
         verify(listener, timeout(1000)).onCacheOverlaysLoaded(overlaysCaptor.capture());
-
         Set<CacheOverlay> overlays = overlaysCaptor.getValue();
 
         assertThat(overlays.size(), is(1));
         assertThat(overlays, hasItem(catOverlay));
     }
+
+    @Test
+    public void findsCachesInProvidedLocations() throws Exception {
+        File cache1File = new File(cacheDir1, "pluto.dog");
+        File cache2File = new File(cacheDir2, "figaro.cat");
+        TestCacheOverlay cache1 = new TestCacheOverlay(dogProvider.getClass(), cache1File.getName(), false);
+        TestCacheOverlay cache2 = new TestCacheOverlay(catProvider.getClass(), cache2File.getName(), false);
+        when(dogProvider.importCacheFromFile(cache1File)).thenReturn(cache1);
+        when(catProvider.importCacheFromFile(cache2File)).thenReturn(cache2);
+
+        assertTrue(cache1File.createNewFile());
+        assertTrue(cache2File.createNewFile());
+
+        cacheManager.refreshAvailableCaches();
+
+        ArgumentCaptor<Set<CacheOverlay>> overlaysCaptor = ArgumentCaptor.forClass(Set.class);
+
+        verify(listener, timeout(1000)).onCacheOverlaysLoaded(overlaysCaptor.capture());
+
+        Set<CacheOverlay> overlays = overlaysCaptor.getValue();
+
+        assertThat(overlays.size(), is(2));
+        assertThat(overlays, hasItem(cache1));
+        assertThat(overlays, hasItem(cache2));
+    }
+
+    @Test
+    public void removesCachesWithFilesThatDoNotExist() {
+
+    }
+
 }

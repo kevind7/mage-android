@@ -114,7 +114,7 @@ public class CacheManager {
         cacheOverlayListeners.remove(listener);
     }
 
-    public void refreshTileOverlays() {
+    public void refreshAvailableCaches() {
         FindCacheOverlaysTask task = new FindCacheOverlaysTask();
         task.execute();
     }
@@ -191,10 +191,13 @@ public class CacheManager {
             }
 
             List<File> searchDirs = cacheLocations.getLocalSearchDirs();
+            List<File> potentialCaches = new ArrayList<>();
             for (File dir : searchDirs) {
-                File[] potentialCaches = dir.listFiles();
-                new ImportCacheFileTask().execute(potentialCaches);
+                File[] files = dir.listFiles();
+                potentialCaches.addAll(Arrays.asList(files));
             }
+
+            new ImportCacheFileTask().execute(potentialCaches.toArray(new File[potentialCaches.size()]));
 
             // TODO: move this to CacheOverlayMapManager, or some such map-specific linkage
             // Set what should be enabled based on preferences.
