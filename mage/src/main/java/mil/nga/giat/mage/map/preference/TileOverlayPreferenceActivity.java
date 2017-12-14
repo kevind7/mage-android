@@ -32,7 +32,7 @@ import java.util.Set;
 
 import mil.nga.giat.mage.R;
 import mil.nga.giat.mage.map.cache.CacheManager;
-import mil.nga.giat.mage.map.cache.CacheManager.OnCacheOverlayListener;
+import mil.nga.giat.mage.map.cache.CacheManager.OnCacheOverlaysLoadedListener;
 import mil.nga.giat.mage.map.cache.CacheOverlay;
 import mil.nga.giat.mage.map.cache.GeoPackageCacheProvider;
 import mil.nga.giat.mage.map.cache.XYZDirectoryCacheProvider;
@@ -70,7 +70,7 @@ public class TileOverlayPreferenceActivity extends AppCompatActivity  {
         }
     }
 
-    public static class OverlayListFragment extends ListFragment implements OnCacheOverlayListener {
+    public static class OverlayListFragment extends ListFragment implements OnCacheOverlaysLoadedListener {
 
         private OverlayAdapter overlayAdapter;
         private ExpandableListView listView;
@@ -151,7 +151,7 @@ public class TileOverlayPreferenceActivity extends AppCompatActivity  {
         }
 
         @Override
-        public void onCacheOverlay(Set<CacheOverlay> overlaySet) {
+        public void onCacheOverlaysLoaded(Set<CacheOverlay> overlaySet) {
             List<CacheOverlay> cacheOverlays = new ArrayList<>(overlaySet);
             overlayAdapter = new OverlayAdapter(getActivity(), cacheOverlays);
             listView.setAdapter(overlayAdapter);

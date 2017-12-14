@@ -113,7 +113,7 @@ import mil.nga.giat.mage.filter.Filter;
 import mil.nga.giat.mage.filter.FilterActivity;
 import mil.nga.giat.mage.map.GoogleMapWrapper.OnMapPanListener;
 import mil.nga.giat.mage.map.cache.CacheManager;
-import mil.nga.giat.mage.map.cache.CacheManager.OnCacheOverlayListener;
+import mil.nga.giat.mage.map.cache.CacheManager.OnCacheOverlaysLoadedListener;
 import mil.nga.giat.mage.map.cache.CacheOverlay;
 import mil.nga.giat.mage.map.cache.GeoPackageCacheOverlay;
 import mil.nga.giat.mage.map.cache.GeoPackageCacheProvider;
@@ -149,7 +149,7 @@ import mil.nga.wkb.geom.GeometryType;
 public class MapFragment extends Fragment
 	implements OnMapReadyCallback, OnMapClickListener, OnMapLongClickListener, OnMarkerClickListener,
 	OnInfoWindowClickListener, OnMapPanListener, OnMyLocationButtonClickListener, OnClickListener,
-	LocationSource, LocationListener, OnCacheOverlayListener, SearchView.OnQueryTextListener,
+	LocationSource, LocationListener, OnCacheOverlaysLoadedListener, SearchView.OnQueryTextListener,
 	IObservationEventListener, ILocationEventListener, IStaticFeatureEventListener {
 
 	private static final String LOG_NAME = MapFragment.class.getName();
@@ -885,7 +885,7 @@ public class MapFragment extends Fragment
 	}
 
 	@Override
-	public void onCacheOverlay(Set<CacheOverlay> cacheOverlays) {
+	public void onCacheOverlaysLoaded(Set<CacheOverlay> cacheOverlays) {
 
 		// Add all overlays that are in the preferences
 

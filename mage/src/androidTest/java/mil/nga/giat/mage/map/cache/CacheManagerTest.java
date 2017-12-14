@@ -2,7 +2,6 @@ package mil.nga.giat.mage.map.cache;
 
 
 import android.app.Application;
-import android.support.test.annotation.UiThreadTest;
 import android.support.test.filters.SmallTest;
 import android.support.test.runner.AndroidJUnit4;
 
@@ -10,7 +9,9 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
@@ -22,63 +23,23 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import static org.hamcrest.CoreMatchers.hasItem;
+import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @RunWith(AndroidJUnit4.class)
 @SmallTest
 public class CacheManagerTest {
 
-    static class TestCacheProvider implements CacheProvider {
-
-        final String ext;
-        final Set<CacheOverlay> availableCaches = new HashSet<>();
-
-        TestCacheProvider(String ext) {
-            this.ext = ext.toLowerCase();
-        }
-
-        @Override
-        public boolean isCacheFile(File cacheFile) {
-            return cacheFile.getName().toLowerCase().endsWith("." + ext);
-        }
-
-        @Override
-        public CacheOverlay importCacheFromFile(File cacheFile) throws CacheImportException {
-            if (!isCacheFile(cacheFile)) {
-                return null;
-            }
-            TestCacheOverlay overlay = new TestCacheOverlay(getClass(), cacheFile.getName(), false);
-            availableCaches.add(overlay);
-            return overlay;
-        }
-
-        @Override
-        public Set<CacheOverlay> refreshAvailableCaches() {
-            return Collections.unmodifiableSet(availableCaches);
-        }
-    }
-
-    static class CatProvider extends TestCacheProvider {
-        CatProvider() {
-            super("cat");
-        }
-    }
-
-    static class DogProvider extends TestCacheProvider {
-        DogProvider() {
-            super("dog");
-        }
-    }
-
     static class TestCacheOverlay extends CacheOverlay {
 
-        /**
-         * Constructor
-         *  @param overlayName      overlayName
-         * @param supportsChildren true if cache overlay with children caches
-         */
         protected TestCacheOverlay(Class<? extends CacheProvider> type, String overlayName, boolean supportsChildren) {
             super(type, overlayName, supportsChildren);
         }
@@ -92,6 +53,9 @@ public class CacheManagerTest {
     @Rule
     public TemporaryFolder testRoot = new TemporaryFolder();
 
+    @Rule
+    public TestName testName = new TestName();
+
     Application context;
     File cacheDir1;
     File cacheDir2;
@@ -99,6 +63,7 @@ public class CacheManagerTest {
     CacheManager cacheManager;
     CacheProvider catProvider;
     CacheProvider dogProvider;
+    CacheManager.OnCacheOverlaysLoadedListener listener;
 
     @Before
     public void configureCacheManager() throws Exception {
@@ -141,11 +106,12 @@ public class CacheManagerTest {
             })
             .providers(catProvider, dogProvider);
 
+        listener = mock(CacheManager.OnCacheOverlaysLoadedListener.class);
         cacheManager = new CacheManager(config);
+        cacheManager.registerCacheOverlayListener(listener);
     }
 
     @Test
-    @UiThreadTest
     public void importsCacheWithCapableProvider() throws Exception {
         File cacheFile = new File(cacheDir1, "big_cache.dog");
 
@@ -153,7 +119,26 @@ public class CacheManagerTest {
 
         cacheManager.tryImportCacheFile(cacheFile);
 
-        verify(dogProvider, timeout(500)).importCacheFromFile(cacheFile);
+        verify(dogProvider, timeout(1000)).importCacheFromFile(cacheFile);
         verify(catProvider, never()).importCacheFromFile(any(File.class));
+    }
+
+    @Test
+    public void addsImportedCacheOverlayToCacheOverlaySet() throws Exception {
+        TestCacheOverlay catOverlay = new TestCacheOverlay(catProvider.getClass(), testName.getMethodName(), false);
+        File cacheFile = new File(cacheDir2, "data.cat");
+        when(catProvider.importCacheFromFile(cacheFile)).thenReturn(catOverlay);
+
+        assertTrue(cacheFile.createNewFile());
+
+        cacheManager.tryImportCacheFile(cacheFile);
+
+        ArgumentCaptor<Set<CacheOverlay>> overlaysCaptor = ArgumentCaptor.forClass(Set.class);
+        verify(listener, timeout(1000)).onCacheOverlaysLoaded(overlaysCaptor.capture());
+
+        Set<CacheOverlay> overlays = overlaysCaptor.getValue();
+
+        assertThat(overlays.size(), is(1));
+        assertThat(overlays, hasItem(catOverlay));
     }
 }

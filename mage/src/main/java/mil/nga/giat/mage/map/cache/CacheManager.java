@@ -1,26 +1,22 @@
 package mil.nga.giat.mage.map.cache;
 
 import android.app.Application;
-import android.content.SharedPreferences;
 import android.os.AsyncTask;
-import android.preference.PreferenceManager;
+import android.support.annotation.MainThread;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
-import java.util.TreeSet;
-
-import mil.nga.giat.mage.R;
 
 /**
  * Created by wnewman on 2/11/16.
  */
+@MainThread
 public class CacheManager {
 
     /**
@@ -33,8 +29,11 @@ public class CacheManager {
         List<File> getLocalSearchDirs();
     }
 
-    public interface OnCacheOverlayListener {
-        void onCacheOverlay(Set<CacheOverlay> cacheOverlays);
+    /**
+     * Implement this interface and {@link #registerCacheOverlayListener(OnCacheOverlaysLoadedListener)}
+     */
+    public interface OnCacheOverlaysLoadedListener {
+        void onCacheOverlaysLoaded(Set<CacheOverlay> cacheOverlays);
     }
 
     private static final String LOG_NAME = CacheManager.class.getName();
@@ -83,7 +82,7 @@ public class CacheManager {
     private final CacheLocationProvider cacheLocations;
     private final List<CacheProvider> providers = new ArrayList<>();
     private final Set<CacheOverlay> cacheOverlays = new HashSet<>();
-    private final Collection<OnCacheOverlayListener> cacheOverlayListeners = new ArrayList<>();
+    private final Collection<OnCacheOverlaysLoadedListener> cacheOverlayListeners = new ArrayList<>();
 
     public CacheManager(Config config) {
         context = config.context;
@@ -95,9 +94,8 @@ public class CacheManager {
         new ImportCacheFileTask().execute(cacheFile);
     }
 
-    public void registerCacheOverlayListener(OnCacheOverlayListener listener) {
+    public void registerCacheOverlayListener(OnCacheOverlaysLoadedListener listener) {
         cacheOverlayListeners.add(listener);
-        listener.onCacheOverlay(cacheOverlays);
     }
 
     public void removeCacheOverlay(String name) {
@@ -112,7 +110,7 @@ public class CacheManager {
         }
     }
 
-    public void unregisterCacheOverlayListener(OnCacheOverlayListener listener) {
+    public void unregisterCacheOverlayListener(OnCacheOverlaysLoadedListener listener) {
         cacheOverlayListeners.remove(listener);
     }
 
@@ -121,59 +119,70 @@ public class CacheManager {
         task.execute();
     }
 
-    private void mergeCacheOverlays(Set<CacheOverlay> update) {
-        cacheOverlays.retainAll(update);
-        update.removeAll(cacheOverlays);
-        cacheOverlays.addAll(update);
-        for (OnCacheOverlayListener listener : cacheOverlayListeners) {
-            listener.onCacheOverlay(cacheOverlays);
+    private void mergeCacheOverlays(CacheImportResult update) {
+        cacheOverlays.addAll(update.imported);
+        for (OnCacheOverlaysLoadedListener listener : cacheOverlayListeners) {
+            listener.onCacheOverlaysLoaded(cacheOverlays);
         }
     }
 
-    public final class ImportCacheFileTask extends AsyncTask<File, Void, Set<CacheOverlay>> {
+    private static class CacheImportResult {
+        private final Set<CacheOverlay> imported;
+        private final List<CacheImportException> failed;
+
+        private CacheImportResult(Set<CacheOverlay> imported, List<CacheImportException> failed) {
+            this.imported = imported;
+            this.failed = failed;
+        }
+    }
+
+    public final class ImportCacheFileTask extends AsyncTask<File, Void, CacheImportResult> {
 
         public ImportCacheFileTask() {
         }
 
         @Override
-        protected Set<CacheOverlay> doInBackground(File... files) {
+        protected CacheImportResult doInBackground(File... files) {
             Set<CacheOverlay> caches = new HashSet<>(files.length);
+            List<CacheImportException> fails = new ArrayList<>(files.length);
             for (File cacheFile : files) {
-                CacheOverlay imported = importFromFirstCapableProvider(cacheFile);
-                if (imported != null) {
+                CacheOverlay imported = null;
+                try {
+                    imported = importFromFirstCapableProvider(cacheFile);
                     caches.add(imported);
                 }
+                catch (CacheImportException e) {
+                    fails.add(e);
+                }
             }
-            return caches;
+            return new CacheImportResult(caches, fails);
         }
 
         @Override
-        protected void onPostExecute(Set<CacheOverlay> cacheOverlays) {
-            mergeCacheOverlays(cacheOverlays);
+        protected void onPostExecute(CacheImportResult result) {
+            mergeCacheOverlays(result);
         }
 
-        private CacheOverlay importFromFirstCapableProvider(File cacheFile) {
+        private CacheOverlay importFromFirstCapableProvider(File cacheFile) throws CacheImportException {
             for (CacheProvider provider : providers) {
-                if (cacheFile.canRead() && provider.isCacheFile(cacheFile)) {
-                    try {
-                        return provider.importCacheFromFile(cacheFile);
-                    }
-                    catch (CacheImportException e) {
-                        // TODO: report back to caller
-                    }
+                if (!cacheFile.canRead()) {
+                    throw new CacheImportException(cacheFile, "cache file is not readable or does not exist: " + cacheFile.getName());
+                }
+                if (provider.isCacheFile(cacheFile)) {
+                    return provider.importCacheFromFile(cacheFile);
                 }
             }
-            return null;
+            throw new CacheImportException(cacheFile, "no cache provider could handle file " + cacheFile.getName());
         }
     }
 
-    private final class FindCacheOverlaysTask extends AsyncTask<Void, Void, Set<CacheOverlay>> {
+    private final class FindCacheOverlaysTask extends AsyncTask<Void, Void, Void> {
 
         FindCacheOverlaysTask() {
         }
 
         @Override
-        protected Set<CacheOverlay> doInBackground(Void... params) {
+        protected Void doInBackground(Void... params) {
 
             Set<CacheOverlay> overlays = new HashSet<>();
 
@@ -243,12 +252,7 @@ public class CacheManager {
 //                editor.apply();
 //            }
 
-            return overlays;
-        }
-
-        @Override
-        protected void onPostExecute(Set<CacheOverlay> result) {
-            mergeCacheOverlays(result);
+            return null;
         }
     }
 }
