@@ -17,12 +17,14 @@ import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 import static org.hamcrest.CoreMatchers.hasItem;
+import static org.hamcrest.CoreMatchers.hasItems;
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
@@ -30,6 +32,7 @@ import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -49,6 +52,10 @@ public class CacheManagerTest {
         }
     }
 
+    static Set<CacheOverlay> cacheSetWithCaches(CacheOverlay... caches) {
+        return Collections.unmodifiableSet(new HashSet<>(Arrays.asList(caches)));
+    }
+
     @Rule
     public TemporaryFolder testRoot = new TemporaryFolder();
 
@@ -62,7 +69,8 @@ public class CacheManagerTest {
     CacheManager cacheManager;
     CacheProvider catProvider;
     CacheProvider dogProvider;
-    CacheManager.OnCacheOverlaysLoadedListener listener;
+    CacheManager.CacheOverlaysUpdateListener listener;
+    ArgumentCaptor<Set<CacheOverlay>> overlaysCaptor = ArgumentCaptor.forClass(Set.class);
 
     @Before
     public void configureCacheManager() throws Exception {
@@ -105,7 +113,7 @@ public class CacheManagerTest {
             })
             .providers(catProvider, dogProvider);
 
-        listener = mock(CacheManager.OnCacheOverlaysLoadedListener.class);
+        listener = mock(CacheManager.CacheOverlaysUpdateListener.class);
         cacheManager = new CacheManager(config);
         cacheManager.registerCacheOverlayListener(listener);
     }
@@ -132,8 +140,8 @@ public class CacheManagerTest {
 
         cacheManager.tryImportCacheFile(cacheFile);
 
-        ArgumentCaptor<Set<CacheOverlay>> overlaysCaptor = ArgumentCaptor.forClass(Set.class);
-        verify(listener, timeout(1000)).onCacheOverlaysLoaded(overlaysCaptor.capture());
+        verify(listener, timeout(1000)).onCacheOverlaysUpdated(overlaysCaptor.capture());
+
         Set<CacheOverlay> overlays = overlaysCaptor.getValue();
 
         assertThat(overlays.size(), is(1));
@@ -141,7 +149,7 @@ public class CacheManagerTest {
     }
 
     @Test
-    public void findsCachesInProvidedLocations() throws Exception {
+    public void refreshingFindsCachesInProvidedLocations() throws Exception {
         File cache1File = new File(cacheDir1, "pluto.dog");
         File cache2File = new File(cacheDir2, "figaro.cat");
         TestCacheOverlay cache1 = new TestCacheOverlay(dogProvider.getClass(), cache1File.getName(), false);
@@ -154,9 +162,7 @@ public class CacheManagerTest {
 
         cacheManager.refreshAvailableCaches();
 
-        ArgumentCaptor<Set<CacheOverlay>> overlaysCaptor = ArgumentCaptor.forClass(Set.class);
-
-        verify(listener, timeout(1000)).onCacheOverlaysLoaded(overlaysCaptor.capture());
+        verify(listener, timeout(1000)).onCacheOverlaysUpdated(overlaysCaptor.capture());
 
         Set<CacheOverlay> overlays = overlaysCaptor.getValue();
 
@@ -166,8 +172,58 @@ public class CacheManagerTest {
     }
 
     @Test
-    public void removesCachesWithFilesThatDoNotExist() {
+    public void refreshingGetsAvailableCachesFromProviders() throws Exception {
+        CacheOverlay dogCache1 = new TestCacheOverlay(dogProvider.getClass(), "dog1", false);
+        CacheOverlay dogCache2 = new TestCacheOverlay(dogProvider.getClass(), "dog2", false);
+        CacheOverlay catCache = new TestCacheOverlay(catProvider.getClass(), "cat1", false);
 
+        when(dogProvider.refreshAvailableCaches()).thenReturn(cacheSetWithCaches(dogCache1, dogCache2));
+        when(catProvider.refreshAvailableCaches()).thenReturn(cacheSetWithCaches(catCache));
+
+        cacheManager.refreshAvailableCaches();
+
+        verify(listener, timeout(1000)).onCacheOverlaysUpdated(overlaysCaptor.capture());
+        verify(dogProvider).refreshAvailableCaches();
+        verify(catProvider).refreshAvailableCaches();
+
+        Set<CacheOverlay> caches = overlaysCaptor.getValue();
+
+        assertThat(caches.size(), is(3));
+        assertThat(caches, hasItems(dogCache1, dogCache2, catCache));
     }
 
+    @Test
+    public void refreshingRemovesCachesNoLongerAvailable() throws Exception {
+        CacheOverlay dogCache1 = new TestCacheOverlay(dogProvider.getClass(), "dog1", false);
+        CacheOverlay dogCache2 = new TestCacheOverlay(dogProvider.getClass(), "dog2", false);
+        CacheOverlay catCache = new TestCacheOverlay(catProvider.getClass(), "cat1", false);
+
+        when(dogProvider.refreshAvailableCaches()).thenReturn(cacheSetWithCaches(dogCache1, dogCache2));
+        when(catProvider.refreshAvailableCaches()).thenReturn(cacheSetWithCaches(catCache));
+
+        cacheManager.refreshAvailableCaches();
+
+        verify(listener, timeout(1000)).onCacheOverlaysUpdated(overlaysCaptor.capture());
+        verify(dogProvider).refreshAvailableCaches();
+        verify(catProvider).refreshAvailableCaches();
+
+        Set<CacheOverlay> caches = overlaysCaptor.getValue();
+
+        assertThat(caches.size(), is(3));
+        assertThat(caches, hasItems(dogCache1, dogCache2, catCache));
+
+        when(dogProvider.refreshAvailableCaches()).thenReturn(cacheSetWithCaches(dogCache2));
+        when(catProvider.refreshAvailableCaches()).thenReturn(Collections.<CacheOverlay>emptySet());
+
+        cacheManager.refreshAvailableCaches();
+
+        verify(listener, timeout(1000).times(2)).onCacheOverlaysUpdated(overlaysCaptor.capture());
+        verify(dogProvider, times(2)).refreshAvailableCaches();
+        verify(catProvider, times(2)).refreshAvailableCaches();
+
+        caches = overlaysCaptor.getValue();
+
+        assertThat(caches.size(), is(1));
+        assertThat(caches, hasItem(dogCache2));
+    }
 }

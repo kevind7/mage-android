@@ -62,10 +62,7 @@ public class GeoPackageCacheProvider implements CacheProvider {
     @Override
     public CacheOverlay importCacheFromFile(File cacheFile) throws CacheImportException {
         String cacheName = getOrImportGeoPackageDatabase(cacheFile);
-        if (cacheName != null) {
-            return createCacheOverlay(cacheName);
-        }
-        return null;
+        return createCacheOverlay(cacheName);
     }
 
     @Override
@@ -88,22 +85,24 @@ public class GeoPackageCacheProvider implements CacheProvider {
      * @param cacheFile
      * @return cache name when imported, null when not imported
      */
-    private String getOrImportGeoPackageDatabase(File cacheFile) {
+    private String getOrImportGeoPackageDatabase(File cacheFile) throws CacheImportException {
         String cacheName = geoPackageManager.getDatabaseAtExternalFile(cacheFile);
         if (cacheName != null) {
             return cacheName;
         }
 
         cacheName = makeUniqueCacheName(geoPackageManager, cacheFile);
+        CacheImportException fail;
         try {
             // import the GeoPackage as a linked file
             if (geoPackageManager.importGeoPackageAsExternalLink(cacheFile, cacheName)) {
                 return cacheName;
             }
-            return null;
+            fail = new CacheImportException(cacheFile, "GeoPackage import failed: " + cacheFile.getName());
         }
         catch (Exception e) {
             Log.e(LOG_NAME, "Failed to import file as GeoPackage. path: " + cacheFile.getAbsolutePath() + ", name: " + cacheName + ", error: " + e.getMessage());
+            fail = new CacheImportException(cacheFile, "GeoPackage import threw exception", e);
         }
 
         if (cacheFile.canWrite()) {
@@ -115,7 +114,7 @@ public class GeoPackageCacheProvider implements CacheProvider {
             }
         }
 
-        return null;
+        throw fail;
     }
 
     /**

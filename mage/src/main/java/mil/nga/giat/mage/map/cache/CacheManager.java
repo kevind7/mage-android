@@ -8,10 +8,11 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 
 /**
  * Created by wnewman on 2/11/16.
@@ -30,10 +31,23 @@ public class CacheManager {
     }
 
     /**
-     * Implement this interface and {@link #registerCacheOverlayListener(OnCacheOverlaysLoadedListener)}
+     * Implement this interface and {@link #registerCacheOverlayListener(CacheOverlaysUpdateListener) register}
+     * an instance to receive {@link #onCacheOverlaysUpdated(Set) notifications} when the set of caches changes.
      */
-    public interface OnCacheOverlaysLoadedListener {
-        void onCacheOverlaysLoaded(Set<CacheOverlay> cacheOverlays);
+    public interface CacheOverlaysUpdateListener {
+        void onCacheOverlaysUpdated(Set<CacheOverlay> cacheOverlays);
+    }
+
+    // TODO: will need this to restore functionality of identifying an explicitly added cache
+    // through the sharing/open-with mechanism and zooming the map to it
+    public final class CacheOverlayUpdate {
+        public final Set<CacheOverlay> added;
+        public final Set<CacheOverlay> removed;
+
+        private CacheOverlayUpdate(Set<CacheOverlay> added, Set<CacheOverlay> removed) {
+            this.added = added;
+            this.removed = removed;
+        }
     }
 
     private static final String LOG_NAME = CacheManager.class.getName();
@@ -81,8 +95,11 @@ public class CacheManager {
     private final Application context;
     private final CacheLocationProvider cacheLocations;
     private final List<CacheProvider> providers = new ArrayList<>();
-    private final Set<CacheOverlay> cacheOverlays = new HashSet<>();
-    private final Collection<OnCacheOverlaysLoadedListener> cacheOverlayListeners = new ArrayList<>();
+    private final Collection<CacheOverlaysUpdateListener> cacheOverlayListeners = new ArrayList<>();
+    private Set<CacheOverlay> cacheOverlays = new HashSet<>();
+    private RefreshAvailableCachesTask refreshTask;
+    private FindNewCacheFilesInProvidedLocationsTask findNewCacheFilesTask;
+    private ImportCacheFileTask importCacheFilesForRefreshTask;
 
     public CacheManager(Config config) {
         context = config.context;
@@ -94,35 +111,89 @@ public class CacheManager {
         new ImportCacheFileTask().execute(cacheFile);
     }
 
-    public void registerCacheOverlayListener(OnCacheOverlaysLoadedListener listener) {
+    public void registerCacheOverlayListener(CacheOverlaysUpdateListener listener) {
         cacheOverlayListeners.add(listener);
     }
 
     public void removeCacheOverlay(String name) {
-        // TODO: remove from CacheProvider
-        Iterator<CacheOverlay> iterator = cacheOverlays.iterator();
-        while (iterator.hasNext()) {
-            CacheOverlay cacheOverlay = iterator.next();
-            if (cacheOverlay.getOverlayName().equalsIgnoreCase(name)) {
-                iterator.remove();
-                return;
-            }
-        }
+        // TODO: rename to delete, implement CacheProvider.deleteCache()
     }
 
-    public void unregisterCacheOverlayListener(OnCacheOverlaysLoadedListener listener) {
+    public void unregisterCacheOverlayListener(CacheOverlaysUpdateListener listener) {
         cacheOverlayListeners.remove(listener);
     }
 
+    /**
+     * Discover new caches available in standard {@link #cacheLocations locations}, then remove defunct caches.
+     * Asynchronous notifications to {@link #registerCacheOverlayListener(CacheOverlaysUpdateListener) listeners}
+     * will result, one notification per refresh, per listener.  Only one refresh can be active at any moment.
+     */
     public void refreshAvailableCaches() {
-        FindCacheOverlaysTask task = new FindCacheOverlaysTask();
-        task.execute();
+        if (refreshTask != null) {
+            return;
+        }
+        findNewCacheFilesTask = new FindNewCacheFilesInProvidedLocationsTask();
+        importCacheFilesForRefreshTask = new ImportCacheFileTask();
+        refreshTask = new RefreshAvailableCachesTask();
+        findNewCacheFilesTask.executeOnExecutor(AsyncTask.SERIAL_EXECUTOR);
     }
 
-    private void mergeCacheOverlays(CacheImportResult update) {
-        cacheOverlays.addAll(update.imported);
-        for (OnCacheOverlaysLoadedListener listener : cacheOverlayListeners) {
-            listener.onCacheOverlaysLoaded(cacheOverlays);
+    private void findNewCacheFilesFinished(FindNewCacheFilesInProvidedLocationsTask task) {
+        if (task != findNewCacheFilesTask) {
+            throw new IllegalStateException(FindNewCacheFilesInProvidedLocationsTask.class.getSimpleName() + " task finished but did not match stored task");
+        }
+        try {
+            importCacheFilesForRefreshTask.executeOnExecutor(AsyncTask.SERIAL_EXECUTOR, task.get());
+        }
+        catch (Exception e) {
+            throw new IllegalStateException("interrupted while retrieving new cache files to import");
+        }
+    }
+
+    private void cacheFileImportFinished(ImportCacheFileTask task) {
+        if (task == importCacheFilesForRefreshTask) {
+            if (refreshTask == null) {
+                throw new IllegalStateException("import task for refresh finished but refresh task is null");
+            }
+            refreshTask.executeOnExecutor(AsyncTask.SERIAL_EXECUTOR);
+        }
+        else {
+            updateCaches(task, null);
+        }
+    }
+
+    private void refreshFinished(RefreshAvailableCachesTask task) {
+        if (task != refreshTask) {
+            throw new IllegalStateException(RefreshAvailableCachesTask.class.getSimpleName() + " task completed but did not match stored task");
+        }
+
+        ImportCacheFileTask localImportTask = importCacheFilesForRefreshTask;
+        RefreshAvailableCachesTask localRefreshTask = refreshTask;
+        importCacheFilesForRefreshTask = null;
+        findNewCacheFilesTask = null;
+        refreshTask = null;
+
+        updateCaches(localImportTask, localRefreshTask);
+    }
+
+    private void updateCaches(ImportCacheFileTask importTask, RefreshAvailableCachesTask refreshTask) {
+        CacheImportResult importResult;
+        Set<CacheOverlay> available = Collections.emptySet();
+        try {
+            importResult = importTask.get();
+            if (refreshTask != null) {
+                available = refreshTask.get();
+            }
+        }
+        catch (Exception e) {
+            throw new IllegalStateException("unexpected error retrieving cache update results", e);
+        }
+        Set<CacheOverlay> added = importResult.imported;
+        Set<CacheOverlay> all = new HashSet<>(added);
+        all.addAll(available);
+        cacheOverlays = Collections.unmodifiableSet(all);
+        for (CacheOverlaysUpdateListener listener : cacheOverlayListeners) {
+            listener.onCacheOverlaysUpdated(cacheOverlays);
         }
     }
 
@@ -136,9 +207,18 @@ public class CacheManager {
         }
     }
 
-    public final class ImportCacheFileTask extends AsyncTask<File, Void, CacheImportResult> {
+    private class ImportCacheFileTask extends AsyncTask<File, Void, CacheImportResult> {
 
-        public ImportCacheFileTask() {
+        private CacheOverlay importFromFirstCapableProvider(File cacheFile) throws CacheImportException {
+            for (CacheProvider provider : providers) {
+                if (!cacheFile.canRead()) {
+                    throw new CacheImportException(cacheFile, "cache file is not readable or does not exist: " + cacheFile.getName());
+                }
+                if (provider.isCacheFile(cacheFile)) {
+                    return provider.importCacheFromFile(cacheFile);
+                }
+            }
+            throw new CacheImportException(cacheFile, "no cache provider could handle file " + cacheFile.getName());
         }
 
         @Override
@@ -160,46 +240,27 @@ public class CacheManager {
 
         @Override
         protected void onPostExecute(CacheImportResult result) {
-            mergeCacheOverlays(result);
-        }
-
-        private CacheOverlay importFromFirstCapableProvider(File cacheFile) throws CacheImportException {
-            for (CacheProvider provider : providers) {
-                if (!cacheFile.canRead()) {
-                    throw new CacheImportException(cacheFile, "cache file is not readable or does not exist: " + cacheFile.getName());
-                }
-                if (provider.isCacheFile(cacheFile)) {
-                    return provider.importCacheFromFile(cacheFile);
-                }
-            }
-            throw new CacheImportException(cacheFile, "no cache provider could handle file " + cacheFile.getName());
+            cacheFileImportFinished(this);
         }
     }
 
-    private final class FindCacheOverlaysTask extends AsyncTask<Void, Void, Void> {
-
-        FindCacheOverlaysTask() {
-        }
+    private final class RefreshAvailableCachesTask extends AsyncTask<Void, Void, Set<CacheOverlay>> {
 
         @Override
-        protected Void doInBackground(Void... params) {
-
+        protected Set<CacheOverlay> doInBackground(Void... params) {
             Set<CacheOverlay> overlays = new HashSet<>();
-
             for (CacheProvider provider : providers) {
                 overlays.addAll(provider.refreshAvailableCaches());
             }
-
-            List<File> searchDirs = cacheLocations.getLocalSearchDirs();
-            List<File> potentialCaches = new ArrayList<>();
-            for (File dir : searchDirs) {
-                File[] files = dir.listFiles();
-                potentialCaches.addAll(Arrays.asList(files));
-            }
-
-            new ImportCacheFileTask().execute(potentialCaches.toArray(new File[potentialCaches.size()]));
+            return overlays;
 
             // TODO: move this to CacheOverlayMapManager, or some such map-specific linkage
+            // but for now i think just save the set of cache files to preferences to re-create
+            // after next launch.  at some point switch to urls instead of file paths to maybe
+            // support more than local files for cached overlays, which at that point i suppose
+            // would not be cached.
+            // TODO: later maybe store to a Room database
+
             // Set what should be enabled based on preferences.
 //            boolean update = false;
 //            SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(context);
@@ -254,8 +315,30 @@ public class CacheManager {
 //                editor.putStringSet(context.getString(R.string.tileOverlaysKey), updatedEnabledOverlays);
 //                editor.apply();
 //            }
+        }
 
-            return null;
+        @Override
+        protected void onPostExecute(Set<CacheOverlay> cacheOverlays) {
+            refreshFinished(this);
+        }
+    }
+
+    private final class FindNewCacheFilesInProvidedLocationsTask extends AsyncTask<Void, Void, File[]> {
+
+        @Override
+        protected File[] doInBackground(Void... voids) {
+            List<File> searchDirs = cacheLocations.getLocalSearchDirs();
+            List<File> potentialCaches = new ArrayList<>();
+            for (File dir : searchDirs) {
+                File[] files = dir.listFiles();
+                potentialCaches.addAll(Arrays.asList(files));
+            }
+            return potentialCaches.toArray(new File[potentialCaches.size()]);
+        }
+
+        @Override
+        protected void onPostExecute(File[] files) {
+            findNewCacheFilesFinished(this);
         }
     }
 }
