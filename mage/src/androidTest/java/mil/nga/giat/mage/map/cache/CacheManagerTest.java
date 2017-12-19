@@ -2,6 +2,7 @@ package mil.nga.giat.mage.map.cache;
 
 
 import android.app.Application;
+import android.os.AsyncTask;
 import android.support.test.filters.SmallTest;
 import android.support.test.runner.AndroidJUnit4;
 
@@ -17,11 +18,16 @@ import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.Executor;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 import static org.hamcrest.CoreMatchers.hasItem;
 import static org.hamcrest.CoreMatchers.hasItems;
@@ -29,11 +35,14 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 @RunWith(AndroidJUnit4.class)
@@ -67,6 +76,7 @@ public class CacheManagerTest {
     File cacheDir2;
     List<File> cacheDirs;
     CacheManager cacheManager;
+    Executor executor;
     CacheProvider catProvider;
     CacheProvider dogProvider;
     CacheManager.CacheOverlaysUpdateListener listener;
@@ -84,6 +94,16 @@ public class CacheManagerTest {
 
         assertTrue(cacheDir1.isDirectory());
         assertTrue(cacheDir2.isDirectory());
+
+        executor = mock(Executor.class);
+        doAnswer(new Answer() {
+            @Override
+            public Object answer(InvocationOnMock invocationOnMock) throws Throwable {
+                Runnable task = invocationOnMock.getArgument(0);
+                AsyncTask.SERIAL_EXECUTOR.execute(task);
+                return null;
+            }
+        }).when(executor).execute(any(Runnable.class));
 
         catProvider = mock(CacheProvider.class);
         dogProvider = mock(CacheProvider.class);
@@ -105,13 +125,14 @@ public class CacheManagerTest {
 
         CacheManager.Config config = new CacheManager.Config()
             .context(context)
+            .executor(executor)
+            .providers(catProvider, dogProvider)
             .cacheLocations(new CacheManager.CacheLocationProvider() {
                 @Override
                 public List<File> getLocalSearchDirs() {
                     return cacheDirs;
                 }
-            })
-            .providers(catProvider, dogProvider);
+            });
 
         listener = mock(CacheManager.CacheOverlaysUpdateListener.class);
         cacheManager = new CacheManager(config);
@@ -225,5 +246,76 @@ public class CacheManagerTest {
 
         assertThat(caches.size(), is(1));
         assertThat(caches, hasItem(dogCache2));
+    }
+
+    @Test
+    public void immediatelyBeginsRefreshOnExecutor() {
+        final boolean[] overrodeMock = new boolean[]{false};
+        doAnswer(new Answer() {
+            @Override
+            public Object answer(InvocationOnMock invocation) throws Throwable {
+                // make sure this answer overrides the one in the setup method
+                overrodeMock[0] = true;
+                return null;
+            }
+        }).when(executor).execute(any(Runnable.class));
+
+        cacheManager.refreshAvailableCaches();
+
+        verify(executor).execute(any(Runnable.class));
+        assertTrue(overrodeMock[0]);
+    }
+
+    @Test
+    public void cannotRefreshMoreThanOnceConcurrently() throws Exception {
+        final Lock lock = new ReentrantLock();
+        final Condition go = lock.newCondition();
+        final List<Runnable> executedTasks = Collections.<Runnable>synchronizedList(new ArrayList<Runnable>());
+
+        doAnswer(new Answer() {
+            @Override
+            public Object answer(InvocationOnMock invocation) throws Throwable {
+                final Runnable task = invocation.getArgument(0);
+                Runnable blocked = new Runnable() {
+                    @Override
+                    public void run() {
+                        if (executedTasks.isEmpty()) {
+                            lock.lock();
+                            try {
+                                go.await();
+                            }
+                            catch (InterruptedException e) {
+                                throw new IllegalStateException(e);
+                            }
+                            lock.unlock();
+                        }
+                        task.run();
+                    }
+                };
+                executedTasks.add(blocked);
+                AsyncTask.SERIAL_EXECUTOR.execute(blocked);
+                return null;
+            }
+        }).when(executor).execute(any(Runnable.class));
+
+        when(catProvider.refreshAvailableCaches()).thenReturn(Collections.<CacheOverlay>emptySet());
+        when(dogProvider.refreshAvailableCaches()).thenReturn(Collections.<CacheOverlay>emptySet());
+
+        cacheManager.refreshAvailableCaches();
+
+        verify(executor).execute(any(Runnable.class));
+        assertThat(executedTasks.size(), is(1));
+
+        cacheManager.refreshAvailableCaches();
+        cacheManager.refreshAvailableCaches();
+
+        verify(executor, times(1)).execute(any(Runnable.class));
+        assertThat(executedTasks.size(), is(1));
+
+        lock.lock();
+        go.signal();
+        lock.unlock();
+
+        verify(listener, timeout(1000)).onCacheOverlaysUpdated(overlaysCaptor.capture());
     }
 }

@@ -12,7 +12,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 
 /**
  * Created by wnewman on 2/11/16.
@@ -58,6 +58,7 @@ public class CacheManager {
         private Application context;
         private CacheLocationProvider cacheLocations;
         private List<CacheProvider> providers = new ArrayList<>();
+        private Executor executor = AsyncTask.SERIAL_EXECUTOR;
 
         public Config context(Application x) {
             context = x;
@@ -78,6 +79,11 @@ public class CacheManager {
             providers.addAll(Arrays.asList(x));
             return this;
         }
+
+        public Config executor(Executor x) {
+            executor = x;
+            return this;
+        }
     }
 
     public static synchronized void initialize(Config config) {
@@ -93,6 +99,7 @@ public class CacheManager {
     }
 
     private final Application context;
+    private final Executor executor;
     private final CacheLocationProvider cacheLocations;
     private final List<CacheProvider> providers = new ArrayList<>();
     private final Collection<CacheOverlaysUpdateListener> cacheOverlayListeners = new ArrayList<>();
@@ -103,12 +110,13 @@ public class CacheManager {
 
     public CacheManager(Config config) {
         context = config.context;
+        executor = config.executor;
         cacheLocations = config.cacheLocations;
         providers.addAll(config.providers);
     }
 
     public void tryImportCacheFile(File cacheFile) {
-        new ImportCacheFileTask().execute(cacheFile);
+        new ImportCacheFileTask().executeOnExecutor(executor, cacheFile);
     }
 
     public void registerCacheOverlayListener(CacheOverlaysUpdateListener listener) {
@@ -135,7 +143,7 @@ public class CacheManager {
         findNewCacheFilesTask = new FindNewCacheFilesInProvidedLocationsTask();
         importCacheFilesForRefreshTask = new ImportCacheFileTask();
         refreshTask = new RefreshAvailableCachesTask();
-        findNewCacheFilesTask.executeOnExecutor(AsyncTask.SERIAL_EXECUTOR);
+        findNewCacheFilesTask.executeOnExecutor(executor);
     }
 
     private void findNewCacheFilesFinished(FindNewCacheFilesInProvidedLocationsTask task) {
@@ -143,7 +151,7 @@ public class CacheManager {
             throw new IllegalStateException(FindNewCacheFilesInProvidedLocationsTask.class.getSimpleName() + " task finished but did not match stored task");
         }
         try {
-            importCacheFilesForRefreshTask.executeOnExecutor(AsyncTask.SERIAL_EXECUTOR, task.get());
+            importCacheFilesForRefreshTask.executeOnExecutor(executor, task.get());
         }
         catch (Exception e) {
             throw new IllegalStateException("interrupted while retrieving new cache files to import");
@@ -155,7 +163,7 @@ public class CacheManager {
             if (refreshTask == null) {
                 throw new IllegalStateException("import task for refresh finished but refresh task is null");
             }
-            refreshTask.executeOnExecutor(AsyncTask.SERIAL_EXECUTOR);
+            refreshTask.executeOnExecutor(executor);
         }
         else {
             updateCaches(task, null);
