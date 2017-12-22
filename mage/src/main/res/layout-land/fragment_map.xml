@@ -71,7 +71,7 @@
         />
 
     <android.support.design.widget.FloatingActionButton
-        android:id="@+id/map_settings"
+        android:id="@+id/map_layer_options"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_margin="12dp"

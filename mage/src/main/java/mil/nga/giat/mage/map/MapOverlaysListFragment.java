@@ -4,9 +4,12 @@ import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.support.v7.widget.LinearLayoutManager;
+import android.support.v7.widget.SwitchCompat;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
+import android.widget.TextView;
 
 import com.woxthebox.draglistview.DragItemAdapter;
 import com.woxthebox.draglistview.DragListView;
@@ -16,14 +19,7 @@ import mil.nga.giat.mage.map.cache.CacheOverlay;
 
 public class MapOverlaysListFragment extends Fragment {
 
-    public static class CacheOverlayViewHolder extends DragItemAdapter.ViewHolder {
-
-        public CacheOverlayViewHolder(View itemView, int handleResId, boolean dragOnLongPress) {
-            super(itemView, handleResId, dragOnLongPress);
-        }
-    }
-
-    public static class OverlayItemAdapter extends DragItemAdapter<CacheOverlay, CacheOverlayViewHolder> {
+    public static class OverlayItemAdapter extends DragItemAdapter<CacheOverlay, OverlayItemViewHolder> {
 
         @Override
         public long getUniqueItemId(int i) {
@@ -31,10 +27,35 @@ public class MapOverlaysListFragment extends Fragment {
         }
 
         @Override
-        public CacheOverlayViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-            return null;
+        public OverlayItemViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+            View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.cache_overlay_list_item, parent, false);
+            return new OverlayItemViewHolder(view);
+        }
+
+        @Override
+        public void onBindViewHolder(OverlayItemViewHolder holder, int position) {
+            super.onBindViewHolder(holder, position);
+            // TODO: set display values for the cache
+//            holder.icon.setImageResource();
+//            holder.name.setText();
+//            holder.enabled.setChecked();
         }
     }
+
+    private static class OverlayItemViewHolder extends DragItemAdapter.ViewHolder {
+
+        private final ImageView icon;
+        private final TextView name;
+        private final SwitchCompat enabled;
+
+        public OverlayItemViewHolder(View itemView) {
+            super(itemView, R.id.overlay_item_name, false);
+            icon = (ImageView) itemView.findViewById(R.id.overlay_item_image);
+            name = (TextView) itemView.findViewById(R.id.overlay_item_name);
+            enabled = (SwitchCompat) itemView.findViewById(R.id.overlay_item_enabled);
+        }
+    }
+
 
     private DragListView overlaysListView;
 
@@ -50,7 +71,6 @@ public class MapOverlaysListFragment extends Fragment {
         overlaysListView = (DragListView) root.findViewById(R.id.tile_overlays_list);
         overlaysListView.getRecyclerView().setVerticalScrollBarEnabled(true);
         overlaysListView.setLayoutManager(new LinearLayoutManager(getContext()));
-
         return root;
     }
 }

@@ -42,10 +42,12 @@ public class CacheManager {
     // through the sharing/open-with mechanism and zooming the map to it
     public final class CacheOverlayUpdate {
         public final Set<CacheOverlay> added;
+        public final Set<CacheOverlay> updated;
         public final Set<CacheOverlay> removed;
 
-        private CacheOverlayUpdate(Set<CacheOverlay> added, Set<CacheOverlay> removed) {
+        private CacheOverlayUpdate(Set<CacheOverlay> added, Set<CacheOverlay> updated, Set<CacheOverlay> removed) {
             this.added = added;
+            this.updated = updated;
             this.removed = removed;
         }
     }
@@ -207,6 +209,7 @@ public class CacheManager {
 
     private static class CacheImportResult {
         private final Set<CacheOverlay> imported;
+        // TODO: propagate failed imports to user somehow
         private final List<CacheImportException> failed;
 
         private CacheImportResult(Set<CacheOverlay> imported, List<CacheImportException> failed) {

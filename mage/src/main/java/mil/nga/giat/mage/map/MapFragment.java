@@ -73,6 +73,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -115,6 +116,7 @@ import mil.nga.giat.mage.map.GoogleMapWrapper.OnMapPanListener;
 import mil.nga.giat.mage.map.cache.CacheManager;
 import mil.nga.giat.mage.map.cache.CacheManager.CacheOverlaysUpdateListener;
 import mil.nga.giat.mage.map.cache.CacheOverlay;
+import mil.nga.giat.mage.map.cache.CacheOverlayOnMap;
 import mil.nga.giat.mage.map.cache.GeoPackageCacheOverlay;
 import mil.nga.giat.mage.map.cache.GeoPackageCacheProvider;
 import mil.nga.giat.mage.map.cache.GeoPackageFeatureTableCacheOverlay;
@@ -209,6 +211,7 @@ public class MapFragment extends Fragment
 	private ConstraintLayout constraintLayout;
 	private ConstraintSet layoutOverlaysCollapsed = new ConstraintSet();
 	private ConstraintSet layoutOverlaysExpanded = new ConstraintSet();
+	private boolean overlaysExpanded = false;
 
 	@Override
 	public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -393,7 +396,7 @@ public class MapFragment extends Fragment
 		searchButton.setOnClickListener(this);
 
 		mapOverlaysContainer = (ViewGroup) constraintLayout.findViewById(R.id.map_overlays_container);
-		overlaysButton = (FloatingActionButton) constraintLayout.findViewById(R.id.map_settings);
+		overlaysButton = (FloatingActionButton) constraintLayout.findViewById(R.id.map_layer_options);
 		overlaysButton.setOnClickListener(this);
 
 		newObservationButton = (FloatingActionButton) constraintLayout.findViewById(R.id.new_observation_button);
@@ -407,6 +410,13 @@ public class MapFragment extends Fragment
 
 		mapWrapper = (GoogleMapWrapper) constraintLayout.findViewById(R.id.map_wrapper);
 		mapWrapper.addView(mapView);
+
+		// TODO: is saved instance state associated with the fragment alone, or with the parent activity?
+		// if the latter, how to propagate the saved state to the child fragment?  want the child fragment
+		// to inflate its ui again for configuration changes, but this fragment is retained across config
+		// chnages, so how does that affect lifecycle?
+		MapOverlaysFragment overlaysFragment = MapOverlaysFragment.newInstance();
+		getChildFragmentManager().beginTransaction().add(R.id.map_overlays_container, overlaysFragment).commit();
 
 		container.addView(constraintLayout);
 		return container;
@@ -777,8 +787,6 @@ public class MapFragment extends Fragment
 		}
 	}
 
-	private boolean overlaysExpanded = false;
-
 	@Override
 	public void onClick(View view) {
 		// close keyboard
@@ -791,13 +799,15 @@ public class MapFragment extends Fragment
 			case R.id.map_search_button:
 				search();
 				return;
-			case R.id.map_settings:
-				View overlays = getView().findViewById(R.id.map_overlays_container);
+			case R.id.map_layer_options:
+				View overlaysContainer = getView().findViewById(R.id.map_overlays_container);
 				TransitionManager.beginDelayedTransition(constraintLayout);
 				if (overlaysExpanded) {
 					layoutOverlaysCollapsed.applyTo(constraintLayout);
 				}
 				else {
+					MapOverlaysFragment overlaysFragment = (MapOverlaysFragment) Fragment.instantiate(getActivity(), MapOverlaysFragment.class.getName());
+					getChildFragmentManager().beginTransaction().replace(R.id.map_overlays_container, overlaysFragment).commitNow();
 					layoutOverlaysExpanded.applyTo(constraintLayout);
 				}
 				overlaysExpanded = !overlaysExpanded;
@@ -884,10 +894,49 @@ public class MapFragment extends Fragment
 	public void onProviderDisabled(String provider) {
 	}
 
+	Set<CacheOverlay> availableOverlays;
+	// maintain z order and map coupling here
+	List<CacheOverlayOnMap> overlaysOnMap;
+
+	public void onOverlayEnabled(CacheOverlayOnMap onMap) {
+		onMap.addToMap();
+	}
+
+	public void onOverlayDisabled(CacheOverlayOnMap onMap) {
+		onMap.removeFromMap();
+	}
+
 	@Override
 	public void onCacheOverlaysUpdated(Set<CacheOverlay> cacheOverlays) {
 
-		// Add all overlays that are in the preferences
+		// TODO: the new way:
+//		CacheManager.CacheOverlayUpdate update = new CacheManager.CacheOverlayUpdate();
+//		Iterator<CacheOverlayOnMap> onMapIterator = overlaysOnMap.iterator();
+//		while (onMapIterator.hasNext()) {
+//			CacheOverlayOnMap onMap = onMapIterator.next()
+//			if (update.removed.contains(onMap.getCacheOverlay())) {
+//				onMap.removeFromMap();
+//				onMapIterator.remove();
+//			}
+//			else if (update.updated.contains(onMap.getCacheOverlay())) {
+//				onMap.refreshOnMap();
+//			}
+//		}
+//
+//		if (update.added.size() == 1) {
+//			CacheOverlay added = update.added.iterator().next();
+//			CacheOverlayOnMap onMap = added.createOverlayOnMap(map).addToMap();
+//			overlaysOnMap.add(onMap);
+////			onMap.zoomMapToBoundingBox();
+//		}
+//		else {
+//			for (CacheOverlay added : udpate.added) {
+//				CacheOverlayOnMap onMap = added.createOverlayOnMap();
+//				overlaysOnMap.add(onMap);
+//			}
+//		}
+
+		// Load overlay order from preferences
 
 		// Track enabled cache overlays
 		Map<String, CacheOverlay> enabledCacheOverlays = new HashMap<>();

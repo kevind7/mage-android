@@ -8,7 +8,14 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Abstract cache overlay
+ * A <code>CacheOverlay</code> represents cached data set which can appear on a map.
+ * A {@link CacheProvider} implementation will create instances of its associated
+ * <code>CacheOverlay</code> subclass.  Note that this class provides default
+ * {@link #equals(Object)} and {@link #hashCode()} implementations because
+ * {@link CacheManager} places <code>CacheOverlay</code> instances in sets and they
+ * may also be used as {@link java.util.HashMap} keys.  Subclasses must take care
+ * those methods work properly if overriding those or other methods on which
+ * <code>equals()</code> and <code>hashCode()</code> depend.
  *
  * @author osbornb
  */
@@ -52,8 +59,10 @@ public abstract class CacheOverlay {
 
     /**
      * Constructor
-     *  @param overlayName             overlayName
-     * @param supportsChildren true if cache overlay with children caches
+     *
+     * @param type the {@link CacheProvider provider} that creates and manages this overlay
+     * @param overlayName a unique, persistent name for the overlay
+     * @param supportsChildren true if this cache overlay can have child cache overlays
      */
     protected CacheOverlay(Class<? extends CacheProvider> type, String overlayName, boolean supportsChildren) {
         this.type = type;
