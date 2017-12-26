@@ -158,7 +158,11 @@ public abstract class CacheOverlay {
 
     @Override
     public boolean equals(Object obj) {
-        return obj != null && getClass().equals(obj.getClass()) && getOverlayName().equals(((CacheOverlay)obj).getOverlayName());
+        if (!(obj instanceof CacheOverlay)) {
+            return false;
+        }
+        CacheOverlay other = (CacheOverlay)obj;
+        return getType().equals(other.getType()) && getOverlayName().equals(other.getOverlayName());
     }
 
     @Override
