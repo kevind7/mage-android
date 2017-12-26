@@ -73,7 +73,6 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -907,7 +906,7 @@ public class MapFragment extends Fragment
 	}
 
 	@Override
-	public void onCacheOverlaysUpdated(Set<CacheOverlay> cacheOverlays) {
+	public void onCacheOverlaysUpdated(CacheManager.CacheOverlayUpdate update) {
 
 		// TODO: the new way:
 //		CacheManager.CacheOverlayUpdate update = new CacheManager.CacheOverlayUpdate();
@@ -947,7 +946,7 @@ public class MapFragment extends Fragment
 		// Reset the bounding box for newly added caches
 		addedCacheBoundingBox = null;
 
-		for (CacheOverlay cacheOverlay : cacheOverlays) {
+		for (CacheOverlay cacheOverlay : update.allAvailable) {
 
 			// If this cache overlay potentially replaced by a new version
 			if (cacheOverlay.isAdded()) {

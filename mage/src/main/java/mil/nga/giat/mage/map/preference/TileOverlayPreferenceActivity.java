@@ -28,7 +28,6 @@ import android.widget.TextView;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 import mil.nga.giat.mage.R;
 import mil.nga.giat.mage.map.cache.CacheManager;
@@ -151,8 +150,8 @@ public class TileOverlayPreferenceActivity extends AppCompatActivity  {
         }
 
         @Override
-        public void onCacheOverlaysUpdated(Set<CacheOverlay> overlaySet) {
-            List<CacheOverlay> cacheOverlays = new ArrayList<>(overlaySet);
+        public void onCacheOverlaysUpdated(CacheManager.CacheOverlayUpdate update) {
+            List<CacheOverlay> cacheOverlays = new ArrayList<>(update.allAvailable);
             overlayAdapter = new OverlayAdapter(getActivity(), cacheOverlays);
             listView.setAdapter(overlayAdapter);
             listView.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {

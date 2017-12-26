@@ -5,6 +5,7 @@ import android.os.AsyncTask;
 import android.support.annotation.MainThread;
 
 import java.io.File;
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -32,23 +33,25 @@ public class CacheManager {
 
     /**
      * Implement this interface and {@link #registerCacheOverlayListener(CacheOverlaysUpdateListener) register}
-     * an instance to receive {@link #onCacheOverlaysUpdated(Set) notifications} when the set of caches changes.
+     * an instance to receive {@link #onCacheOverlaysUpdated(CacheOverlayUpdate) notifications} when the set of caches changes.
      */
     public interface CacheOverlaysUpdateListener {
-        void onCacheOverlaysUpdated(Set<CacheOverlay> cacheOverlays);
+        void onCacheOverlaysUpdated(CacheOverlayUpdate update);
     }
 
     // TODO: will need this to restore functionality of identifying an explicitly added cache
     // through the sharing/open-with mechanism and zooming the map to it
-    public final class CacheOverlayUpdate {
+    public static final class CacheOverlayUpdate {
         public final Set<CacheOverlay> added;
         public final Set<CacheOverlay> updated;
         public final Set<CacheOverlay> removed;
+        public final Set<CacheOverlay> allAvailable;
 
-        private CacheOverlayUpdate(Set<CacheOverlay> added, Set<CacheOverlay> updated, Set<CacheOverlay> removed) {
+        private CacheOverlayUpdate(Set<CacheOverlay> added, Set<CacheOverlay> updated, Set<CacheOverlay> removed, Set<CacheOverlay> allAvailable) {
             this.added = added;
             this.updated = updated;
             this.removed = removed;
+            this.allAvailable = allAvailable;
         }
     }
 
@@ -105,7 +108,7 @@ public class CacheManager {
     private final CacheLocationProvider cacheLocations;
     private final List<CacheProvider> providers = new ArrayList<>();
     private final Collection<CacheOverlaysUpdateListener> cacheOverlayListeners = new ArrayList<>();
-    private Set<CacheOverlay> cacheOverlays = new HashSet<>();
+    private Set<CacheOverlay> cacheOverlays = Collections.emptySet();
     private RefreshAvailableCachesTask refreshTask;
     private FindNewCacheFilesInProvidedLocationsTask findNewCacheFilesTask;
     private ImportCacheFileTask importCacheFilesForRefreshTask;
@@ -131,6 +134,10 @@ public class CacheManager {
 
     public void unregisterCacheOverlayListener(CacheOverlaysUpdateListener listener) {
         cacheOverlayListeners.remove(listener);
+    }
+
+    public Set<CacheOverlay> getCacheOverlays() {
+        return cacheOverlays;
     }
 
     /**
@@ -198,12 +205,24 @@ public class CacheManager {
         catch (Exception e) {
             throw new IllegalStateException("unexpected error retrieving cache update results", e);
         }
-        Set<CacheOverlay> added = importResult.imported;
-        Set<CacheOverlay> all = new HashSet<>(added);
+        Set<CacheOverlay> all = importResult.imported;
         all.addAll(available);
+        Set<CacheOverlay> added = new HashSet(all);
+        added.removeAll(cacheOverlays);
+        Set<CacheOverlay> updated = new HashSet<>(all);
+        updated.retainAll(cacheOverlays);
+        Set<CacheOverlay> removed = new HashSet<>(cacheOverlays);
+        removed.removeAll(all);
+
         cacheOverlays = Collections.unmodifiableSet(all);
+
+        CacheOverlayUpdate update = new CacheOverlayUpdate(
+            Collections.unmodifiableSet(added),
+            Collections.unmodifiableSet(updated),
+            Collections.unmodifiableSet(removed),
+            cacheOverlays);
         for (CacheOverlaysUpdateListener listener : cacheOverlayListeners) {
-            listener.onCacheOverlaysUpdated(cacheOverlays);
+            listener.onCacheOverlaysUpdated(update);
         }
     }
 

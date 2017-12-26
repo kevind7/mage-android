@@ -6,9 +6,11 @@ import android.os.AsyncTask;
 import android.support.test.filters.SmallTest;
 import android.support.test.runner.AndroidJUnit4;
 
+import org.hamcrest.CoreMatchers;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.matchers.JUnitMatchers;
 import org.junit.rules.TemporaryFolder;
 import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
@@ -29,9 +31,12 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.hasItem;
 import static org.hamcrest.CoreMatchers.hasItems;
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.CoreMatchers.sameInstance;
+import static org.hamcrest.Matchers.empty;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.any;
@@ -78,7 +83,7 @@ public class CacheManagerTest {
     CacheProvider catProvider;
     CacheProvider dogProvider;
     CacheManager.CacheOverlaysUpdateListener listener;
-    ArgumentCaptor<Set<CacheOverlay>> overlaysCaptor = ArgumentCaptor.forClass(Set.class);
+    ArgumentCaptor<CacheManager.CacheOverlayUpdate> updateCaptor = ArgumentCaptor.forClass(CacheManager.CacheOverlayUpdate.class);
 
     @Before
     public void configureCacheManager() throws Exception {
@@ -159,20 +164,26 @@ public class CacheManagerTest {
 
         cacheManager.tryImportCacheFile(cacheFile);
 
-        verify(listener, timeout(1000)).onCacheOverlaysUpdated(overlaysCaptor.capture());
+        verify(listener, timeout(1000)).onCacheOverlaysUpdated(updateCaptor.capture());
 
-        Set<CacheOverlay> overlays = overlaysCaptor.getValue();
+        CacheManager.CacheOverlayUpdate update = updateCaptor.getValue();
+        Set<CacheOverlay> overlays = cacheManager.getCacheOverlays();
 
         assertThat(overlays.size(), is(1));
         assertThat(overlays, hasItem(catOverlay));
+        assertThat(update.added.size(), is(1));
+        assertThat(update.added, hasItem(catOverlay));
+        assertTrue(update.updated.isEmpty());
+        assertTrue(update.removed.isEmpty());
+        assertThat(update.allAvailable, sameInstance(overlays));
     }
 
     @Test
     public void refreshingFindsCachesInProvidedLocations() throws Exception {
         File cache1File = new File(cacheDir1, "pluto.dog");
         File cache2File = new File(cacheDir2, "figaro.cat");
-        TestCacheOverlay cache1 = new TestCacheOverlay(dogProvider.getClass(), cache1File.getName(), false);
-        TestCacheOverlay cache2 = new TestCacheOverlay(catProvider.getClass(), cache2File.getName(), false);
+        CacheOverlay cache1 = new TestCacheOverlay(dogProvider.getClass(), cache1File.getName(), false);
+        CacheOverlay cache2 = new TestCacheOverlay(catProvider.getClass(), cache2File.getName(), false);
         when(dogProvider.importCacheFromFile(cache1File)).thenReturn(cache1);
         when(catProvider.importCacheFromFile(cache2File)).thenReturn(cache2);
 
@@ -181,13 +192,18 @@ public class CacheManagerTest {
 
         cacheManager.refreshAvailableCaches();
 
-        verify(listener, timeout(1000)).onCacheOverlaysUpdated(overlaysCaptor.capture());
+        verify(listener, timeout(1000)).onCacheOverlaysUpdated(updateCaptor.capture());
 
-        Set<CacheOverlay> overlays = overlaysCaptor.getValue();
+        CacheManager.CacheOverlayUpdate update = updateCaptor.getValue();
+        Set<CacheOverlay> overlays = cacheManager.getCacheOverlays();
 
         assertThat(overlays.size(), is(2));
-        assertThat(overlays, hasItem(cache1));
-        assertThat(overlays, hasItem(cache2));
+        assertThat(overlays, hasItems(cache1, cache2));
+        assertThat(update.added.size(), is(2));
+        assertThat(update.added, hasItems(cache1, cache2));
+        assertTrue(update.updated.isEmpty());
+        assertTrue(update.removed.isEmpty());
+        assertThat(update.allAvailable, sameInstance(overlays));
     }
 
     @Test
@@ -201,14 +217,20 @@ public class CacheManagerTest {
 
         cacheManager.refreshAvailableCaches();
 
-        verify(listener, timeout(1000)).onCacheOverlaysUpdated(overlaysCaptor.capture());
+        verify(listener, timeout(1000)).onCacheOverlaysUpdated(updateCaptor.capture());
         verify(dogProvider).refreshAvailableCaches();
         verify(catProvider).refreshAvailableCaches();
 
-        Set<CacheOverlay> caches = overlaysCaptor.getValue();
+        CacheManager.CacheOverlayUpdate update = updateCaptor.getValue();
+        Set<CacheOverlay> overlays = cacheManager.getCacheOverlays();
 
-        assertThat(caches.size(), is(3));
-        assertThat(caches, hasItems(dogCache1, dogCache2, catCache));
+        assertThat(overlays.size(), is(3));
+        assertThat(overlays, hasItems(dogCache1, dogCache2, catCache));
+        assertThat(update.added.size(), is(3));
+        assertThat(update.added, hasItems(dogCache1, dogCache2, catCache));
+        assertTrue(update.updated.isEmpty());
+        assertTrue(update.removed.isEmpty());
+        assertThat(update.allAvailable, sameInstance(overlays));
     }
 
     @Test
@@ -222,28 +244,34 @@ public class CacheManagerTest {
 
         cacheManager.refreshAvailableCaches();
 
-        verify(listener, timeout(1000)).onCacheOverlaysUpdated(overlaysCaptor.capture());
+        verify(listener, timeout(1000)).onCacheOverlaysUpdated(updateCaptor.capture());
         verify(dogProvider).refreshAvailableCaches();
         verify(catProvider).refreshAvailableCaches();
 
-        Set<CacheOverlay> caches = overlaysCaptor.getValue();
+        Set<CacheOverlay> overlays = cacheManager.getCacheOverlays();
 
-        assertThat(caches.size(), is(3));
-        assertThat(caches, hasItems(dogCache1, dogCache2, catCache));
+        assertThat(overlays.size(), is(3));
+        assertThat(overlays, hasItems(dogCache1, dogCache2, catCache));
 
         when(dogProvider.refreshAvailableCaches()).thenReturn(cacheSetWithCaches(dogCache2));
         when(catProvider.refreshAvailableCaches()).thenReturn(Collections.<CacheOverlay>emptySet());
 
         cacheManager.refreshAvailableCaches();
 
-        verify(listener, timeout(1000).times(2)).onCacheOverlaysUpdated(overlaysCaptor.capture());
+        verify(listener, timeout(1000).times(2)).onCacheOverlaysUpdated(updateCaptor.capture());
+
         verify(dogProvider, times(2)).refreshAvailableCaches();
         verify(catProvider, times(2)).refreshAvailableCaches();
 
-        caches = overlaysCaptor.getValue();
+        overlays = cacheManager.getCacheOverlays();
+        CacheManager.CacheOverlayUpdate update = updateCaptor.getValue();
 
-        assertThat(caches.size(), is(1));
-        assertThat(caches, hasItem(dogCache2));
+        assertThat(overlays.size(), is(1));
+        assertThat(overlays, hasItem(dogCache2));
+        assertThat(update.added, empty());
+        assertThat(update.updated, empty());
+        assertThat(update.removed, hasItems(dogCache1, catCache));
+        assertThat(update.allAvailable, sameInstance(overlays));
     }
 
     @Test
@@ -314,6 +342,6 @@ public class CacheManagerTest {
         go.signal();
         lock.unlock();
 
-        verify(listener, timeout(1000)).onCacheOverlaysUpdated(overlaysCaptor.capture());
+        verify(listener, timeout(1000)).onCacheOverlaysUpdated(updateCaptor.capture());
     }
 }
