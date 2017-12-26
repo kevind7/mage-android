@@ -7,6 +7,7 @@ import android.support.test.filters.SmallTest;
 import android.support.test.runner.AndroidJUnit4;
 
 import org.hamcrest.CoreMatchers;
+import org.hamcrest.Matchers;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -35,6 +36,7 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.hasItem;
 import static org.hamcrest.CoreMatchers.hasItems;
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.CoreMatchers.sameInstance;
 import static org.hamcrest.Matchers.empty;
 import static org.junit.Assert.assertThat;
@@ -272,6 +274,47 @@ public class CacheManagerTest {
         assertThat(update.updated, empty());
         assertThat(update.removed, hasItems(dogCache1, catCache));
         assertThat(update.allAvailable, sameInstance(overlays));
+    }
+
+    @Test
+    public void refreshingUpdatesExistingCachesThatChanged() throws Exception {
+        CacheOverlay dogOrig = new TestCacheOverlay(dogProvider.getClass(), "dog1", false);
+
+        when(dogProvider.refreshAvailableCaches()).thenReturn(cacheSetWithCaches(dogOrig));
+
+        cacheManager.refreshAvailableCaches();
+
+        verify(listener, timeout(1000)).onCacheOverlaysUpdated(updateCaptor.capture());
+
+        Set<CacheOverlay> overlays = cacheManager.getCacheOverlays();
+        CacheManager.CacheOverlayUpdate update = updateCaptor.getValue();
+
+        assertThat(overlays.size(), is(1));
+        assertThat(overlays, hasItem(dogOrig));
+        assertThat(update.added.size(), is(1));
+        assertThat(update.added, hasItem(dogOrig));
+        assertThat(update.updated, empty());
+        assertThat(update.removed, empty());
+
+        CacheOverlay dogUpdated = new TestCacheOverlay(dogProvider.getClass(), "dog1", false);
+
+        when(dogProvider.refreshAvailableCaches()).thenReturn(cacheSetWithCaches(dogUpdated));
+
+        cacheManager.refreshAvailableCaches();
+
+        verify(listener, timeout(1000)).onCacheOverlaysUpdated(updateCaptor.capture());
+
+        Set<CacheOverlay> overlaysRefreshed = cacheManager.getCacheOverlays();
+        update = updateCaptor.getValue();
+
+        assertThat(overlaysRefreshed, not(sameInstance(overlays)));
+        assertThat(overlaysRefreshed.size(), is(1));
+        assertThat(overlaysRefreshed, hasItem(sameInstance(dogUpdated)));
+        assertThat(overlaysRefreshed, hasItem(dogOrig));
+        assertThat(update.added, empty());
+        assertThat(update.updated.size(), is(1));
+        assertThat(update.updated, hasItem(sameInstance(dogUpdated)));
+        assertThat(update.removed, empty());
     }
 
     @Test
