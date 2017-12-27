@@ -10,8 +10,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executor;
 
@@ -194,27 +196,37 @@ public class CacheManager {
     }
 
     private void updateCaches(ImportCacheFileTask importTask, RefreshAvailableCachesTask refreshTask) {
-        CacheImportResult importResult;
-        Set<CacheOverlay> available = Collections.emptySet();
+        Set<CacheOverlay> allIncoming;
         try {
-            importResult = importTask.get();
+            CacheImportResult importResult = importTask.get();
+            allIncoming = importResult.imported;
             if (refreshTask != null) {
-                available = refreshTask.get();
+                allIncoming.addAll(refreshTask.get());
             }
         }
         catch (Exception e) {
             throw new IllegalStateException("unexpected error retrieving cache update results", e);
         }
-        Set<CacheOverlay> all = importResult.imported;
-        all.addAll(available);
-        Set<CacheOverlay> added = new HashSet(all);
-        added.removeAll(cacheOverlays);
-        Set<CacheOverlay> updated = new HashSet<>(all);
-        updated.retainAll(cacheOverlays);
-        Set<CacheOverlay> removed = new HashSet<>(cacheOverlays);
-        removed.removeAll(all);
 
-        cacheOverlays = Collections.unmodifiableSet(all);
+        Map<CacheOverlay,CacheOverlay> incomingIndex = new HashMap<>();
+        for (CacheOverlay cache : allIncoming) {
+            incomingIndex.put(cache, cache);
+        }
+        Set<CacheOverlay> added = new HashSet<>(allIncoming);
+        added.removeAll(cacheOverlays);
+        Set<CacheOverlay> removed = new HashSet<>();
+        Set<CacheOverlay> updated = new HashSet<>();
+        for (CacheOverlay existing : cacheOverlays) {
+            CacheOverlay incoming = incomingIndex.get(existing);
+            if (incoming == null) {
+                removed.add(existing);
+            }
+            else if (incoming != existing) {
+                updated.add(incoming);
+            }
+        }
+
+        cacheOverlays = Collections.unmodifiableSet(new HashSet<>(incomingIndex.keySet()));
 
         CacheOverlayUpdate update = new CacheOverlayUpdate(
             Collections.unmodifiableSet(added),

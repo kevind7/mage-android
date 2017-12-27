@@ -6,12 +6,9 @@ import android.os.AsyncTask;
 import android.support.test.filters.SmallTest;
 import android.support.test.runner.AndroidJUnit4;
 
-import org.hamcrest.CoreMatchers;
-import org.hamcrest.Matchers;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.matchers.JUnitMatchers;
 import org.junit.rules.TemporaryFolder;
 import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
@@ -21,18 +18,15 @@ import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
 import java.io.File;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Executor;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.atomic.AtomicReference;
 
-import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.hasItem;
 import static org.hamcrest.CoreMatchers.hasItems;
 import static org.hamcrest.CoreMatchers.is;
@@ -41,6 +35,7 @@ import static org.hamcrest.CoreMatchers.sameInstance;
 import static org.hamcrest.Matchers.empty;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -56,7 +51,7 @@ public class CacheManagerTest {
 
     static class TestCacheOverlay extends CacheOverlay {
 
-        protected TestCacheOverlay(Class<? extends CacheProvider> type, String overlayName, boolean supportsChildren) {
+        TestCacheOverlay(Class<? extends CacheProvider> type, String overlayName, boolean supportsChildren) {
             super(type, overlayName, supportsChildren);
         }
 
@@ -66,7 +61,7 @@ public class CacheManagerTest {
         }
     }
 
-    static Set<CacheOverlay> cacheSetWithCaches(CacheOverlay... caches) {
+    private static Set<CacheOverlay> cacheSetWithCaches(CacheOverlay... caches) {
         return Collections.unmodifiableSet(new HashSet<>(Arrays.asList(caches)));
     }
 
@@ -76,16 +71,16 @@ public class CacheManagerTest {
     @Rule
     public TestName testName = new TestName();
 
-    Application context;
-    File cacheDir1;
-    File cacheDir2;
-    List<File> cacheDirs;
-    CacheManager cacheManager;
-    Executor executor;
-    CacheProvider catProvider;
-    CacheProvider dogProvider;
-    CacheManager.CacheOverlaysUpdateListener listener;
-    ArgumentCaptor<CacheManager.CacheOverlayUpdate> updateCaptor = ArgumentCaptor.forClass(CacheManager.CacheOverlayUpdate.class);
+    private Application context;
+    private File cacheDir1;
+    private File cacheDir2;
+    private List<File> cacheDirs;
+    private CacheManager cacheManager;
+    private Executor executor;
+    private CacheProvider catProvider;
+    private CacheProvider dogProvider;
+    private CacheManager.CacheOverlaysUpdateListener listener;
+    private ArgumentCaptor<CacheManager.CacheOverlayUpdate> updateCaptor = ArgumentCaptor.forClass(CacheManager.CacheOverlayUpdate.class);
 
     @Before
     public void configureCacheManager() throws Exception {
@@ -302,7 +297,7 @@ public class CacheManagerTest {
 
         cacheManager.refreshAvailableCaches();
 
-        verify(listener, timeout(1000)).onCacheOverlaysUpdated(updateCaptor.capture());
+        verify(listener, timeout(1000).times(2)).onCacheOverlaysUpdated(updateCaptor.capture());
 
         Set<CacheOverlay> overlaysRefreshed = cacheManager.getCacheOverlays();
         update = updateCaptor.getValue();
@@ -337,31 +332,31 @@ public class CacheManagerTest {
 
     @Test
     public void cannotRefreshMoreThanOnceConcurrently() throws Exception {
-        final Lock lock = new ReentrantLock();
-        final Condition go = lock.newCondition();
-        final List<Runnable> executedTasks = Collections.<Runnable>synchronizedList(new ArrayList<Runnable>());
+        final CyclicBarrier taskBegan = new CyclicBarrier(2);
+        final CyclicBarrier taskCanProceed = new CyclicBarrier(2);
+        final AtomicReference<Runnable> runningTask = new AtomicReference<>();
 
         doAnswer(new Answer() {
             @Override
             public Object answer(InvocationOnMock invocation) throws Throwable {
                 final Runnable task = invocation.getArgument(0);
-                Runnable blocked = new Runnable() {
+                final Runnable blocked = new Runnable() {
                     @Override
                     public void run() {
-                        if (executedTasks.isEmpty()) {
-                            lock.lock();
+                        if (runningTask.get() == this) {
                             try {
-                                go.await();
+                                taskBegan.await();
+                                taskCanProceed.await();
                             }
-                            catch (InterruptedException e) {
+                            catch (Exception e) {
+                                fail(e.getMessage());
                                 throw new IllegalStateException(e);
                             }
-                            lock.unlock();
                         }
                         task.run();
                     }
                 };
-                executedTasks.add(blocked);
+                runningTask.compareAndSet(null, blocked);
                 AsyncTask.SERIAL_EXECUTOR.execute(blocked);
                 return null;
             }
@@ -372,18 +367,17 @@ public class CacheManagerTest {
 
         cacheManager.refreshAvailableCaches();
 
-        verify(executor).execute(any(Runnable.class));
-        assertThat(executedTasks.size(), is(1));
+        verify(executor, times(1)).execute(any(Runnable.class));
 
-        cacheManager.refreshAvailableCaches();
+        // wait for the background task to start, then try to start another refresh
+        // and verify no new tasks were submitted to executor
+        taskBegan.await();
+
         cacheManager.refreshAvailableCaches();
 
         verify(executor, times(1)).execute(any(Runnable.class));
-        assertThat(executedTasks.size(), is(1));
 
-        lock.lock();
-        go.signal();
-        lock.unlock();
+        taskCanProceed.await();
 
         verify(listener, timeout(1000)).onCacheOverlaysUpdated(updateCaptor.capture());
     }
