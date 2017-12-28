@@ -5,7 +5,6 @@ import android.os.AsyncTask;
 import android.support.annotation.MainThread;
 
 import java.io.File;
-import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -174,7 +173,7 @@ public class CacheManager {
             if (refreshTask == null) {
                 throw new IllegalStateException("import task for refresh finished but refresh task is null");
             }
-            refreshTask.executeOnExecutor(executor);
+            refreshTask.executeOnExecutor(executor, cacheOverlays);
         }
         else {
             updateCaches(task, null);
@@ -286,13 +285,27 @@ public class CacheManager {
         }
     }
 
-    private final class RefreshAvailableCachesTask extends AsyncTask<Void, Void, Set<CacheOverlay>> {
+    private final class RefreshAvailableCachesTask extends AsyncTask<Set<CacheOverlay>, Void, Set<CacheOverlay>> {
 
         @Override
-        protected Set<CacheOverlay> doInBackground(Void... params) {
+        protected Set<CacheOverlay> doInBackground(Set<CacheOverlay>... params) {
+            Map<Class<? extends CacheProvider>,Set<CacheOverlay>> cachesByProvider = new HashMap<>(providers.size());
+            Set<CacheOverlay> existingCaches = params[0];
+            for (CacheOverlay cache : existingCaches) {
+                Set<CacheOverlay> providerCaches = cachesByProvider.get(cache.getType());
+                if (providerCaches == null) {
+                    providerCaches = new HashSet<>();
+                    cachesByProvider.put(cache.getType(), providerCaches);
+                }
+                providerCaches.add(cache);
+            }
             Set<CacheOverlay> overlays = new HashSet<>();
             for (CacheProvider provider : providers) {
-                overlays.addAll(provider.refreshAvailableCaches());
+                Set<CacheOverlay> providerCaches = cachesByProvider.get(provider.getClass());
+                if (providerCaches == null) {
+                    providerCaches = Collections.emptySet();
+                }
+                overlays.addAll(provider.refreshCaches(providerCaches));
             }
             return overlays;
 

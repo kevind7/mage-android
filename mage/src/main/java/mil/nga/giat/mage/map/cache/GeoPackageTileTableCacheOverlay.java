@@ -43,6 +43,12 @@ public class GeoPackageTileTableCacheOverlay extends GeoPackageTableCacheOverlay
     }
 
     @Override
+    public CacheOverlayOnMap createOverlayOnMap(GoogleMap map) {
+        // TODO
+        return null;
+    }
+
+    @Override
     public void removeFromMap() {
         if (tileOverlay != null) {
             tileOverlay.remove();

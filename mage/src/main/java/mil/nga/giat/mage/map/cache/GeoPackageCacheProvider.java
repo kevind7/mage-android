@@ -1,6 +1,7 @@
 package mil.nga.giat.mage.map.cache;
 
 import android.content.Context;
+import android.support.annotation.NonNull;
 import android.util.Log;
 
 import java.io.File;
@@ -66,17 +67,43 @@ public class GeoPackageCacheProvider implements CacheProvider {
     }
 
     @Override
-    public Set<CacheOverlay> refreshAvailableCaches() {
-        Set<CacheOverlay> overlays = new HashSet<>();
-        geoPackageManager.deleteAllMissingExternal();
-        List<String> externalDatabases = geoPackageManager.externalDatabases();
-        for (String database : externalDatabases) {
-            GeoPackageCacheOverlay cacheOverlay = createCacheOverlay(database);
-            if (cacheOverlay != null) {
-                overlays.add(cacheOverlay);
+    public Set<CacheOverlay> refreshCaches(Set<CacheOverlay> existingCaches) {
+        Set<CacheOverlay> refreshed = new HashSet<>(existingCaches.size());
+        for (CacheOverlay cache : existingCaches) {
+            GeoPackageCacheOverlay gpCache = (GeoPackageCacheOverlay) cache;
+            File dbFile = geoPackageManager.getFile(gpCache.getOverlayName());
+            if (!dbFile.exists() || !dbFile.canRead()) {
+                gpCache = null;
+            }
+            if (dbFile.lastModified() > gpCache.getRefreshTimestamp()) {
+                gpCache = createCacheOverlay(gpCache.getOverlayName());
+            }
+            else {
+                gpCache.updateRefreshTimestamp();
+            }
+
+            if (gpCache != null) {
+                refreshed.add(gpCache);
             }
         }
-        return overlays;
+
+        return refreshed;
+
+        // TODO: test getting rid of this in favor of above to keep records of
+        // unavailable databases along with a persistent database name that
+        // can be stored in preferences to persist z-order.  otherwise, there's
+        // no guarantee that the database/cache name will be the same across
+        // different imports because of makeUniqueCacheName() above
+//        Set<CacheOverlay> overlays = new HashSet<>();
+//        geoPackageManager.deleteAllMissingExternal();
+//        List<String> externalDatabases = geoPackageManager.externalDatabases();
+//        for (String database : externalDatabases) {
+//            GeoPackageCacheOverlay cacheOverlay = createCacheOverlay(database);
+//            if (cacheOverlay != null) {
+//                overlays.add(cacheOverlay);
+//            }
+//        }
+//        return overlays;
     }
 
     /**
@@ -85,23 +112,24 @@ public class GeoPackageCacheProvider implements CacheProvider {
      * @param cacheFile
      * @return cache name when imported, null when not imported
      */
+    @NonNull
     private String getOrImportGeoPackageDatabase(File cacheFile) throws CacheImportException {
-        String cacheName = geoPackageManager.getDatabaseAtExternalFile(cacheFile);
-        if (cacheName != null) {
-            return cacheName;
+        String databaseName = geoPackageManager.getDatabaseAtExternalFile(cacheFile);
+        if (databaseName != null) {
+            return databaseName;
         }
 
-        cacheName = makeUniqueCacheName(geoPackageManager, cacheFile);
+        databaseName = makeUniqueCacheName(geoPackageManager, cacheFile);
         CacheImportException fail;
         try {
             // import the GeoPackage as a linked file
-            if (geoPackageManager.importGeoPackageAsExternalLink(cacheFile, cacheName)) {
-                return cacheName;
+            if (geoPackageManager.importGeoPackageAsExternalLink(cacheFile, databaseName)) {
+                return databaseName;
             }
             fail = new CacheImportException(cacheFile, "GeoPackage import failed: " + cacheFile.getName());
         }
         catch (Exception e) {
-            Log.e(LOG_NAME, "Failed to import file as GeoPackage. path: " + cacheFile.getAbsolutePath() + ", name: " + cacheName + ", error: " + e.getMessage());
+            Log.e(LOG_NAME, "Failed to import file as GeoPackage. path: " + cacheFile.getAbsolutePath() + ", name: " + databaseName + ", error: " + e.getMessage());
             fail = new CacheImportException(cacheFile, "GeoPackage import threw exception", e);
         }
 

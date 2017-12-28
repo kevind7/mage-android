@@ -1,11 +1,15 @@
 package mil.nga.giat.mage.map.cache;
 
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
+
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.MapView;
 import com.google.android.gms.maps.model.LatLng;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 /**
  * A <code>CacheOverlay</code> represents cached data set which can appear on a map.
@@ -20,6 +24,7 @@ import java.util.List;
  * @author osbornb
  */
 public abstract class CacheOverlay {
+
 
     /**
      * Build the cache overlayName of a child
@@ -43,19 +48,28 @@ public abstract class CacheOverlay {
     private final Class<? extends CacheProvider> type;
 
     /**
+     * True if the cache type supports child caches
+     */
+    private final boolean supportsChildren;
+
+    private long refreshTimestamp;
+
+    /**
+     * Cache overlay parent
+     */
+    private CacheOverlay parent;
+
+    /**
      * True when enabled
      */
+    @Deprecated
     private boolean enabled = false;
 
     /**
      * True when the cache was newly added, such as a file opened with MAGE
      */
+    @Deprecated
     private boolean added = false;
-
-    /**
-     * True if the cache type supports child caches
-     */
-    private final boolean supportsChildren;
 
     /**
      * Constructor
@@ -68,12 +82,23 @@ public abstract class CacheOverlay {
         this.type = type;
         this.overlayName = overlayName;
         this.supportsChildren = supportsChildren;
+        updateRefreshTimestamp();
     }
 
     /**
-     * Remove the cache overlay from the map
+     * Create the {@link CacheProvider provider-specific} {@link CacheOverlayOnMap map-linkage} that
+     * can draw this cache's data on the given map.
+     * @param map the map to link to the {@link CacheOverlayOnMap#getMap()}
+     * @return a new {@link CacheOverlayOnMap} instance
      */
+    public abstract CacheOverlayOnMap createOverlayOnMap(GoogleMap map);
+
+    @Deprecated
     public abstract void removeFromMap();
+
+    protected void updateRefreshTimestamp() {
+        refreshTimestamp = System.currentTimeMillis();
+    }
 
     public String getOverlayName() {
         return overlayName;
@@ -83,18 +108,33 @@ public abstract class CacheOverlay {
         return type;
     }
 
+    /**
+     * Return the last timestamp when this cache data was refreshed.  This does
+     * not necessarily indicate the underlying data changed, only that the data
+     * was last verified to be available at this time.
+     *
+     * @return a long timestamp suitable for constructing {@link java.util.Date#Date(long)}
+     */
+    public long getRefreshTimestamp() {
+        return refreshTimestamp;
+    }
+
+    @Deprecated
     public boolean isEnabled() {
         return enabled;
     }
 
+    @Deprecated
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
     }
 
+    @Deprecated
     public boolean isAdded() {
         return added;
     }
 
+    @Deprecated
     public void setAdded(boolean added) {
         this.added = added;
     }
@@ -104,6 +144,7 @@ public abstract class CacheOverlay {
      *
      * @return
      */
+    @Nullable
     public Integer getIconImageResourceId() {
         return null;
     }
@@ -122,6 +163,7 @@ public abstract class CacheOverlay {
      *
      * @return
      */
+    @NonNull
     public List<CacheOverlay> getChildren() {
         return Collections.emptyList();
     }
@@ -131,8 +173,9 @@ public abstract class CacheOverlay {
      *
      * @return parent cache overlay
      */
+    @Nullable
     public CacheOverlay getParent(){
-        return null;
+        return parent;
     }
 
     /**
@@ -140,6 +183,7 @@ public abstract class CacheOverlay {
      *
      * @return
      */
+    @Nullable
     public String getInfo() {
         return null;
     }
@@ -170,7 +214,21 @@ public abstract class CacheOverlay {
         return getOverlayName().hashCode();
     }
 
+    @Override
+    public String toString() {
+        return getClass().getSimpleName() + "(" + getOverlayName() + ")";
+    }
+
     public boolean isTypeOf(Class<? extends CacheProvider> providerType) {
         return providerType.isAssignableFrom(getType());
+    }
+
+    /**
+     * Set the parent cache overlay
+     *
+     * @param parent
+     */
+    protected void setParent(CacheOverlay parent) {
+        this.parent = parent;
     }
 }

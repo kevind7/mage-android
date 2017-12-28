@@ -1,5 +1,6 @@
 package mil.nga.giat.mage.map.cache;
 
+import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.model.TileOverlay;
 
 import java.io.File;
@@ -32,6 +33,12 @@ public class XYZDirectoryCacheOverlay extends CacheOverlay {
     public XYZDirectoryCacheOverlay(String name, File directory) {
         super(XYZDirectoryCacheProvider.class, name, false);
         this.directory = directory;
+    }
+
+    @Override
+    public CacheOverlayOnMap createOverlayOnMap(GoogleMap map) {
+        // TODO
+        return null;
     }
 
     @Override

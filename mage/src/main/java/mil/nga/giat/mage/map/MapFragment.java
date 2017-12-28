@@ -73,6 +73,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -895,7 +896,7 @@ public class MapFragment extends Fragment
 
 	Set<CacheOverlay> availableOverlays;
 	// maintain z order and map coupling here
-	List<CacheOverlayOnMap> overlaysOnMap;
+	Map<CacheOverlay, CacheOverlayOnMap> overlaysOnMap;
 
 	public void onOverlayEnabled(CacheOverlayOnMap onMap) {
 		onMap.addToMap();
@@ -908,32 +909,30 @@ public class MapFragment extends Fragment
 	@Override
 	public void onCacheOverlaysUpdated(CacheManager.CacheOverlayUpdate update) {
 
-		// TODO: the new way:
-//		CacheManager.CacheOverlayUpdate update = new CacheManager.CacheOverlayUpdate();
-//		Iterator<CacheOverlayOnMap> onMapIterator = overlaysOnMap.iterator();
-//		while (onMapIterator.hasNext()) {
-//			CacheOverlayOnMap onMap = onMapIterator.next()
-//			if (update.removed.contains(onMap.getCacheOverlay())) {
-//				onMap.removeFromMap();
-//				onMapIterator.remove();
-//			}
-//			else if (update.updated.contains(onMap.getCacheOverlay())) {
-//				onMap.refreshOnMap();
-//			}
+		for (CacheOverlay removed : update.removed) {
+			CacheOverlayOnMap onMap = overlaysOnMap.get(removed);
+			onMap.removeFromMap();
+		}
+
+		// TODO: update/refresh api
+//		for (CacheOverlay updated : update.updated) {
+//			CacheOverlayOnMap onMap = overlaysOnMap.get(updated);
+//			onMap = updated.refreshOverlayOnMap(map, onMap);
+//			overlaysOnMap.put(updated, onMap);
 //		}
-//
-//		if (update.added.size() == 1) {
-//			CacheOverlay added = update.added.iterator().next();
-//			CacheOverlayOnMap onMap = added.createOverlayOnMap(map).addToMap();
-//			overlaysOnMap.add(onMap);
-////			onMap.zoomMapToBoundingBox();
-//		}
-//		else {
-//			for (CacheOverlay added : udpate.added) {
-//				CacheOverlayOnMap onMap = added.createOverlayOnMap();
-//				overlaysOnMap.add(onMap);
-//			}
-//		}
+
+		if (update.added.size() == 1) {
+			CacheOverlay explicitlyRequestedCache = update.added.iterator().next();
+			CacheOverlayOnMap onMap = explicitlyRequestedCache.createOverlayOnMap(map);
+			overlaysOnMap.put(explicitlyRequestedCache, onMap);
+			onMap.zoomMapToBoundingBox();
+		}
+		else {
+			for (CacheOverlay added : update.added) {
+				CacheOverlayOnMap onMap = added.createOverlayOnMap(map);
+				overlaysOnMap.put(added, onMap);
+			}
+		}
 
 		// Load overlay order from preferences
 
@@ -973,9 +972,9 @@ public class MapFragment extends Fragment
 
 		// Remove any overlays that are on the map but no longer selected in
 		// preferences, update the tile overlays to the enabled tile overlays
-		for (CacheOverlay cacheOverlay : this.cacheOverlays.values()) {
-			cacheOverlay.removeFromMap();
-		}
+//		for (CacheOverlay cacheOverlay : this.cacheOverlays.values()) {
+//			cacheOverlay.removeFromMap();
+//		}
 		this.cacheOverlays = enabledCacheOverlays;
 
 		// Close GeoPackages no longer enabled

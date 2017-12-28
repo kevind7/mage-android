@@ -76,6 +76,12 @@ public class GeoPackageFeatureTableCacheOverlay extends GeoPackageTableCacheOver
     }
 
     @Override
+    public CacheOverlayOnMap createOverlayOnMap(GoogleMap map) {
+        // TODO
+        return null;
+    }
+
+    @Override
     public void removeFromMap() {
         for (GoogleMapShape shape : shapes.values()) {
             shape.remove();

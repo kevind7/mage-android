@@ -1,3 +1,5 @@
+import com.google.android.gms.maps.GoogleMap;
+
 import org.junit.Test;
 
 import java.io.File;
@@ -5,6 +7,7 @@ import java.util.Set;
 
 import mil.nga.giat.mage.map.cache.CacheImportException;
 import mil.nga.giat.mage.map.cache.CacheOverlay;
+import mil.nga.giat.mage.map.cache.CacheOverlayOnMap;
 import mil.nga.giat.mage.map.cache.CacheProvider;
 
 import static org.junit.Assert.assertFalse;
@@ -25,7 +28,7 @@ public class CacheOverlayTest {
         }
 
         @Override
-        public Set<CacheOverlay> refreshAvailableCaches() {
+        public Set<CacheOverlay> refreshCaches(Set<CacheOverlay> existingCaches) {
             return null;
         }
     }
@@ -43,7 +46,7 @@ public class CacheOverlayTest {
         }
 
         @Override
-        public Set<CacheOverlay> refreshAvailableCaches() {
+        public Set<CacheOverlay> refreshCaches(Set<CacheOverlay> existingCaches) {
             return null;
         }
     }
@@ -52,6 +55,11 @@ public class CacheOverlayTest {
 
         protected TestCacheOverlay1(Class<? extends CacheProvider> type, String overlayName, boolean supportsChildren) {
             super(type, overlayName, supportsChildren);
+        }
+
+        @Override
+        public CacheOverlayOnMap createOverlayOnMap(GoogleMap map) {
+            return null;
         }
 
         @Override
@@ -64,6 +72,11 @@ public class CacheOverlayTest {
 
         protected TestCacheOverlay2(Class<? extends CacheProvider> type, String overlayName, boolean supportsChildren) {
             super(type, overlayName, supportsChildren);
+        }
+
+        @Override
+        public CacheOverlayOnMap createOverlayOnMap(GoogleMap map) {
+            return null;
         }
 
         @Override

@@ -16,7 +16,7 @@ public class XYZDirectoryCacheProvider implements CacheProvider {
     }
 
     @Override
-    public Set<CacheOverlay> refreshAvailableCaches() {
+    public Set<CacheOverlay> refreshCaches(Set<CacheOverlay> existingCaches) {
         return null;
     }
 

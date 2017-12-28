@@ -1,5 +1,7 @@
 package mil.nga.giat.mage.map.cache;
 
+import com.google.android.gms.maps.GoogleMap;
+
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -38,6 +40,12 @@ public class GeoPackageCacheOverlay extends CacheOverlay {
             }
             this.tables.put(table.getTableName(), table);
         }
+    }
+
+    @Override
+    public CacheOverlayOnMap createOverlayOnMap(GoogleMap map) {
+        // TODO:
+        return null;
     }
 
     @Override
