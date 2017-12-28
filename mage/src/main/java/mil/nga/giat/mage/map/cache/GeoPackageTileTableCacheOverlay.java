@@ -4,11 +4,20 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.MapView;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.TileOverlay;
+import com.google.android.gms.maps.model.TileOverlayOptions;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import mil.nga.geopackage.extension.link.FeatureTileTableLinker;
+import mil.nga.geopackage.features.index.FeatureIndexManager;
+import mil.nga.geopackage.features.user.FeatureDao;
+import mil.nga.geopackage.tiles.features.FeatureTiles;
+import mil.nga.geopackage.tiles.features.MapFeatureTiles;
+import mil.nga.geopackage.tiles.overlay.BoundedOverlay;
 import mil.nga.geopackage.tiles.overlay.FeatureOverlayQuery;
+import mil.nga.geopackage.tiles.overlay.GeoPackageOverlayFactory;
+import mil.nga.geopackage.tiles.user.TileDao;
 import mil.nga.giat.mage.R;
 
 /**
@@ -44,7 +53,37 @@ public class GeoPackageTileTableCacheOverlay extends GeoPackageTableCacheOverlay
 
     @Override
     public CacheOverlayOnMap createOverlayOnMap(GoogleMap map) {
-        // TODO
+//        // Create a new GeoPackage tile provider and add to the map
+//        TileDao tileDao = geoPackage.getTileDao(tileTableCacheOverlay.getTableName());
+//        BoundedOverlay geoPackageTileProvider = GeoPackageOverlayFactory.getBoundedOverlay(tileDao);
+//        TileOverlayOptions overlayOptions = null;
+//        if(linkedToFeatures){
+//            overlayOptions = createFeatureTileOverlayOptions(geoPackageTileProvider);
+//        }else {
+//            overlayOptions = createTileOverlayOptions(geoPackageTileProvider);
+//        }
+//        TileOverlay tileOverlay = map.addTileOverlay(overlayOptions);
+//        tileTableCacheOverlay.setTileOverlay(tileOverlay);
+//
+//        // Check for linked feature tables
+//        tileTableCacheOverlay.clearFeatureOverlayQueries();
+//        FeatureTileTableLinker linker = new FeatureTileTableLinker(geoPackage);
+//        List<FeatureDao> featureDaos = linker.getFeatureDaosForTileTable(tileDao.getTableName());
+//        for(FeatureDao featureDao: featureDaos){
+//
+//            // Create the feature tiles
+//            FeatureTiles featureTiles = new MapFeatureTiles(getActivity(), featureDao);
+//
+//            // Create an index manager
+//            FeatureIndexManager indexer = new FeatureIndexManager(getActivity(), geoPackage, featureDao);
+//            featureTiles.setIndexManager(indexer);
+//
+//            // Add the feature overlay query
+//            FeatureOverlayQuery featureOverlayQuery = new FeatureOverlayQuery(getActivity(), geoPackageTileProvider, featureTiles);
+//            tileTableCacheOverlay.addFeatureOverlayQuery(featureOverlayQuery);
+//        }
+//
+//        cacheOverlay = tileTableCacheOverlay;
         return null;
     }
 

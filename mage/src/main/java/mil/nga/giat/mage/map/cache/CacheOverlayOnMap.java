@@ -5,10 +5,15 @@ import com.google.android.gms.maps.GoogleMap;
 import mil.nga.giat.mage.map.MapFragment;
 
 public interface CacheOverlayOnMap {
-    CacheOverlay getCacheOverlay();
     GoogleMap getMap();
-    abstract CacheOverlayOnMap addToMap();
-    abstract CacheOverlayOnMap removeFromMap();
-    abstract CacheOverlayOnMap refreshOnMap();
-    abstract CacheOverlayOnMap zoomMapToBoundingBox();
+    CacheOverlayOnMap addToMap();
+    CacheOverlayOnMap removeFromMap();
+    CacheOverlayOnMap zoomMapToBoundingBox();
+
+    /**
+     * Have this overlay's features been added to the {@link #getMap() map}?
+     *
+     * @return true if the overlay data is currently on the map
+     */
+    boolean isEnabled();
 }

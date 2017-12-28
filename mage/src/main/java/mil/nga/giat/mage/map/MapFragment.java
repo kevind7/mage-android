@@ -915,11 +915,16 @@ public class MapFragment extends Fragment
 		}
 
 		// TODO: update/refresh api
-//		for (CacheOverlay updated : update.updated) {
-//			CacheOverlayOnMap onMap = overlaysOnMap.get(updated);
-//			onMap = updated.refreshOverlayOnMap(map, onMap);
-//			overlaysOnMap.put(updated, onMap);
-//		}
+		for (CacheOverlay updated : update.updated) {
+			CacheOverlayOnMap onMap = overlaysOnMap.remove(updated);
+			boolean enabled = onMap.isEnabled();
+			onMap.removeFromMap();
+			overlaysOnMap.put(updated, onMap);
+			onMap = updated.createOverlayOnMap(map);
+			if (enabled) {
+				onMap.addToMap();
+			}
+		}
 
 		if (update.added.size() == 1) {
 			CacheOverlay explicitlyRequestedCache = update.added.iterator().next();
@@ -958,11 +963,7 @@ public class MapFragment extends Fragment
 			// The user has asked for this overlay
 			if (cacheOverlay.isEnabled()) {
 
-				// Handle each type of cache overlay
-				if (cacheOverlay.isTypeOf(XYZDirectoryCacheProvider.class)) {
-					addXYZDirectoryCacheOverlay(enabledCacheOverlays, (XYZDirectoryCacheOverlay) cacheOverlay);
-				}
-				else if (cacheOverlay.isTypeOf(GeoPackageCacheProvider.class)) {
+				if (cacheOverlay.isTypeOf(GeoPackageCacheProvider.class)) {
 					addGeoPackageCacheOverlay(enabledCacheOverlays, enabledGeoPackages, (GeoPackageCacheOverlay) cacheOverlay);
 				}
 			}
@@ -1000,28 +1001,6 @@ public class MapFragment extends Fragment
 				Log.e(LOG_NAME, "Unable to move camera to newly added cache location", e);
 			}
 		}
-	}
-
-	/**
-	 * Add XYZ Directory tile cache overlay
-	 * @param enabledCacheOverlays
-	 * @param xyzDirectoryCacheOverlay
-	 * TODO: move to XYZDirectoryCacheProvider and related classes
-	 */
-	private void addXYZDirectoryCacheOverlay(Map<String, CacheOverlay> enabledCacheOverlays, XYZDirectoryCacheOverlay xyzDirectoryCacheOverlay){
-		// Retrieve the cache overlay if it already exists (and remove from cache overlays)
-		CacheOverlay cacheOverlay = cacheOverlays.remove(xyzDirectoryCacheOverlay.getOverlayName());
-		if(cacheOverlay == null){
-			// Create a new tile provider and add to the map
-			TileProvider tileProvider = new FileSystemTileProvider(256, 256, xyzDirectoryCacheOverlay.getDirectory().getAbsolutePath());
-			TileOverlayOptions overlayOptions = createTileOverlayOptions(tileProvider);
-			// Set the tile overlay in the cache overlay
-			TileOverlay tileOverlay = map.addTileOverlay(overlayOptions);
-			xyzDirectoryCacheOverlay.setTileOverlay(tileOverlay);
-			cacheOverlay = xyzDirectoryCacheOverlay;
-		}
-		// Add the cache overlay to the enabled cache overlays
-		enabledCacheOverlays.put(cacheOverlay.getOverlayName(), cacheOverlay);
 	}
 
 	/**

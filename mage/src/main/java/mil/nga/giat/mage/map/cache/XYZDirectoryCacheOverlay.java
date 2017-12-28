@@ -2,10 +2,13 @@ package mil.nga.giat.mage.map.cache;
 
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.model.TileOverlay;
+import com.google.android.gms.maps.model.TileOverlayOptions;
+import com.google.android.gms.maps.model.TileProvider;
 
 import java.io.File;
 
 import mil.nga.giat.mage.R;
+import mil.nga.giat.mage.map.FileSystemTileProvider;
 
 /**
  * XYZ Directory of tiles cache overlay
@@ -14,15 +17,58 @@ import mil.nga.giat.mage.R;
  */
 public class XYZDirectoryCacheOverlay extends CacheOverlay {
 
+
+    static class OnMap implements CacheOverlayOnMap {
+
+        private final GoogleMap map;
+        private final XYZDirectoryCacheOverlay cache;
+        private TileOverlay overlay;
+
+        OnMap(GoogleMap map, XYZDirectoryCacheOverlay cache) {
+            this.map = map;
+            this.cache = cache;
+        }
+
+        @Override
+        public GoogleMap getMap() {
+            return null;
+        }
+
+        @Override
+        public CacheOverlayOnMap addToMap() {
+            TileProvider tileProvider = new FileSystemTileProvider(256, 256, cache.getDirectory().getAbsolutePath());
+            TileOverlayOptions overlayOptions = new TileOverlayOptions();
+            overlayOptions.tileProvider(tileProvider);
+            // TODO: z-index
+//            overlayOptions.zIndex(zIndex);
+            overlay = map.addTileOverlay(overlayOptions);
+            return this;
+        }
+
+        @Override
+        public CacheOverlayOnMap removeFromMap() {
+            // TODO: should there be setVisible()/isVisible() to retain the TileOverlay instance?
+            overlay.remove();
+            overlay = null;
+            return this;
+        }
+
+        @Override
+        public CacheOverlayOnMap zoomMapToBoundingBox() {
+            return null;
+        }
+
+        @Override
+        public boolean isEnabled() {
+            return overlay != null;
+        }
+    }
+
+
     /**
      * Tile directory
      */
     private File directory;
-
-    /**
-     * Tile Overlay
-     */
-    private TileOverlay tileOverlay;
 
     /**
      * Constructor
@@ -37,16 +83,11 @@ public class XYZDirectoryCacheOverlay extends CacheOverlay {
 
     @Override
     public CacheOverlayOnMap createOverlayOnMap(GoogleMap map) {
-        // TODO
-        return null;
+        return new OnMap(map, this);
     }
 
     @Override
     public void removeFromMap() {
-        if (tileOverlay != null) {
-            tileOverlay.remove();
-            tileOverlay = null;
-        }
     }
 
     @Override
@@ -61,24 +102,6 @@ public class XYZDirectoryCacheOverlay extends CacheOverlay {
      */
     public File getDirectory() {
         return directory;
-    }
-
-    /**
-     * Get the tile overlay
-     *
-     * @return
-     */
-    public TileOverlay getTileOverlay() {
-        return tileOverlay;
-    }
-
-    /**
-     * Set the tile overlay
-     *
-     * @param tileOverlay
-     */
-    public void setTileOverlay(TileOverlay tileOverlay) {
-        this.tileOverlay = tileOverlay;
     }
 
     @Override
