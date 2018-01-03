@@ -121,6 +121,10 @@ public class CacheManager {
         providers.addAll(config.providers);
     }
 
+    public List<CacheProvider> getProviders() {
+        return this.providers;
+    }
+
     public void tryImportCacheFile(File cacheFile) {
         new ImportCacheFileTask().executeOnExecutor(executor, cacheFile);
     }
@@ -309,7 +313,7 @@ public class CacheManager {
             }
             return overlays;
 
-            // TODO: move this to CacheOverlayMapManager, or some such map-specific linkage
+            // TODO: move this to CacheOverlayOnMapManager, or some such map-specific linkage
             // but for now i think just save the set of cache files to preferences to re-create
             // after next launch.  at some point switch to urls instead of file paths to maybe
             // support more than local files for cached overlays, which at that point i suppose

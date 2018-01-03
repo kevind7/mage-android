@@ -58,10 +58,6 @@ public class XYZDirectoryCacheOverlay extends CacheOverlay {
             return null;
         }
 
-        @Override
-        public boolean isEnabled() {
-            return overlay != null;
-        }
     }
 
 

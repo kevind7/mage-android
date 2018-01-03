@@ -60,18 +60,6 @@ public abstract class CacheOverlay {
     private CacheOverlay parent;
 
     /**
-     * True when enabled
-     */
-    @Deprecated
-    private boolean enabled = false;
-
-    /**
-     * True when the cache was newly added, such as a file opened with MAGE
-     */
-    @Deprecated
-    private boolean added = false;
-
-    /**
      * Constructor
      *
      * @param type the {@link CacheProvider provider} that creates and manages this overlay
@@ -84,17 +72,6 @@ public abstract class CacheOverlay {
         this.supportsChildren = supportsChildren;
         updateRefreshTimestamp();
     }
-
-    /**
-     * Create the {@link CacheProvider provider-specific} {@link CacheOverlayOnMap map-linkage} that
-     * can draw this cache's data on the given map.
-     * @param map the map to link to the {@link CacheOverlayOnMap#getMap()}
-     * @return a new {@link CacheOverlayOnMap} instance
-     */
-    public abstract CacheOverlayOnMap createOverlayOnMap(GoogleMap map);
-
-    @Deprecated
-    public abstract void removeFromMap();
 
     protected void updateRefreshTimestamp() {
         refreshTimestamp = System.currentTimeMillis();
@@ -117,26 +94,6 @@ public abstract class CacheOverlay {
      */
     public long getRefreshTimestamp() {
         return refreshTimestamp;
-    }
-
-    @Deprecated
-    public boolean isEnabled() {
-        return enabled;
-    }
-
-    @Deprecated
-    public void setEnabled(boolean enabled) {
-        this.enabled = enabled;
-    }
-
-    @Deprecated
-    public boolean isAdded() {
-        return added;
-    }
-
-    @Deprecated
-    public void setAdded(boolean added) {
-        this.added = added;
     }
 
     /**
@@ -185,18 +142,6 @@ public abstract class CacheOverlay {
      */
     @Nullable
     public String getInfo() {
-        return null;
-    }
-
-    /**
-     * On map click
-     *
-     * @param latLng  map click location
-     * @param mapView map view
-     * @param map     Google map
-     * @return map click message
-     */
-    public String onMapClick(LatLng latLng, MapView mapView, GoogleMap map) {
         return null;
     }
 

@@ -117,6 +117,7 @@ import mil.nga.giat.mage.map.cache.CacheManager;
 import mil.nga.giat.mage.map.cache.CacheManager.CacheOverlaysUpdateListener;
 import mil.nga.giat.mage.map.cache.CacheOverlay;
 import mil.nga.giat.mage.map.cache.CacheOverlayOnMap;
+import mil.nga.giat.mage.map.cache.CacheOverlayOnMapManager;
 import mil.nga.giat.mage.map.cache.GeoPackageCacheOverlay;
 import mil.nga.giat.mage.map.cache.GeoPackageCacheProvider;
 import mil.nga.giat.mage.map.cache.GeoPackageFeatureTableCacheOverlay;
@@ -769,7 +770,7 @@ public class MapFragment extends Fragment
 	@Override
 	public void onMapLongClick(LatLng point) {
 		hideKeyboard();
-		if(!UserHelper.getInstance(mage).isCurrentUserPartOfCurrentEvent()) {
+		if (!UserHelper.getInstance(mage).isCurrentUserPartOfCurrentEvent()) {
 			new AlertDialog.Builder(getActivity())
 				.setTitle(getActivity().getResources().getString(R.string.location_no_event_title))
 				.setMessage(getActivity().getResources().getString(R.string.location_no_event_message))
@@ -898,12 +899,19 @@ public class MapFragment extends Fragment
 	// maintain z order and map coupling here
 	Map<CacheOverlay, CacheOverlayOnMap> overlaysOnMap;
 
-	public void onOverlayEnabled(CacheOverlayOnMap onMap) {
-		onMap.addToMap();
+	CacheOverlayOnMapManager overlaysManager;
+
+	// listener methods invoked from overlays list instance
+	public void onOverlayEnabled(CacheOverlay cache) {
+		overlaysManager.showCacheOverlay(cache);
 	}
 
-	public void onOverlayDisabled(CacheOverlayOnMap onMap) {
-		onMap.removeFromMap();
+	public void onOverlayDisabled(CacheOverlay cache) {
+		overlaysManager.hideCacheOverlay(cache);
+	}
+
+	public void onOverlayOrderChanged(List<CacheOverlay> caches) {
+		overlaysManager.setOverlayZOrder(caches);
 	}
 
 	@Override
@@ -914,14 +922,13 @@ public class MapFragment extends Fragment
 			onMap.removeFromMap();
 		}
 
-		// TODO: update/refresh api
 		for (CacheOverlay updated : update.updated) {
 			CacheOverlayOnMap onMap = overlaysOnMap.remove(updated);
-			boolean enabled = onMap.isEnabled();
+			boolean visible = onMap.isVisible();
 			onMap.removeFromMap();
 			overlaysOnMap.put(updated, onMap);
 			onMap = updated.createOverlayOnMap(map);
-			if (enabled) {
+			if (visible) {
 				onMap.addToMap();
 			}
 		}
@@ -1001,254 +1008,6 @@ public class MapFragment extends Fragment
 				Log.e(LOG_NAME, "Unable to move camera to newly added cache location", e);
 			}
 		}
-	}
-
-	/**
-	 * Add a GeoPackage cache overlay, which contains tile and feature tables
-	 * @param enabledCacheOverlays
-	 * @param enabledGeoPackages
-	 * @param geoPackageCacheOverlay
-	 * TODO: move to GeoPackageCacheProvider and related classes
-	 */
-	private void addGeoPackageCacheOverlay(Map<String, CacheOverlay> enabledCacheOverlays, Set<String> enabledGeoPackages, GeoPackageCacheOverlay geoPackageCacheOverlay){
-
-		// Check each GeoPackage table
-		for(CacheOverlay tableCacheOverlay: geoPackageCacheOverlay.getChildren()){
-			// Check if the table is enabled
-			if(tableCacheOverlay.isEnabled()){
-
-				// Get and open if needed the GeoPackage
-				GeoPackage geoPackage = geoPackageCache.getOrOpen(geoPackageCacheOverlay.getOverlayName());
-				enabledGeoPackages.add(geoPackage.getName());
-
-				// Handle tile and feature tables
-				if (tableCacheOverlay instanceof GeoPackageTileTableCacheOverlay) {
-					addGeoPackageTileCacheOverlay(enabledCacheOverlays, (GeoPackageTileTableCacheOverlay) tableCacheOverlay, geoPackage, false);
-				}
-				else if (tableCacheOverlay instanceof GeoPackageFeatureTableCacheOverlay) {
-					addGeoPackageFeatureCacheOverlay(enabledCacheOverlays, (GeoPackageFeatureTableCacheOverlay) tableCacheOverlay, geoPackage);
-				}
-				else {
-					throw new UnsupportedOperationException("Unsupported GeoPackage type: " + tableCacheOverlay.getType());
-				}
-
-				// If a newly added cache, update the bounding box for zooming
-				if(geoPackageCacheOverlay.isAdded()){
-
-					try {
-						ContentsDao contentsDao = geoPackage.getContentsDao();
-						Contents contents = contentsDao.queryForId(((GeoPackageTileTableCacheOverlay) tableCacheOverlay).getTableName());
-						BoundingBox contentsBoundingBox = contents.getBoundingBox();
-						Projection projection = ProjectionFactory
-								.getProjection(contents.getSrs().getOrganizationCoordsysId());
-
-						ProjectionTransform transform = projection.getTransformation(ProjectionConstants.EPSG_WORLD_GEODETIC_SYSTEM);
-						BoundingBox boundingBox = transform.transform(contentsBoundingBox);
-						boundingBox = TileBoundingBoxUtils.boundWgs84BoundingBoxWithWebMercatorLimits(boundingBox);
-
-						if (addedCacheBoundingBox == null) {
-							addedCacheBoundingBox = boundingBox;
-						} else {
-							addedCacheBoundingBox = TileBoundingBoxUtils.union(addedCacheBoundingBox, boundingBox);
-						}
-					}catch(Exception e){
-						Log.e(LOG_NAME, "Failed to retrieve GeoPackage Table bounding box. GeoPackage: "
-								+ geoPackage.getName() + ", Table: " + tableCacheOverlay.getOverlayName(), e);
-					}
-				}
-			}
-		}
-	}
-
-	/**
-	 * Add the GeoPackage Tile Table Cache Overlay
-	 * @param enabledCacheOverlays
-	 * @param tileTableCacheOverlay
-	 * @param geoPackage
-	 * @param linkedToFeatures
-	 */
-	private void addGeoPackageTileCacheOverlay(Map<String, CacheOverlay> enabledCacheOverlays, GeoPackageTileTableCacheOverlay tileTableCacheOverlay, GeoPackage geoPackage, boolean linkedToFeatures){
-		// Retrieve the cache overlay if it already exists (and remove from cache overlays)
-		CacheOverlay cacheOverlay = cacheOverlays.remove(tileTableCacheOverlay.getOverlayName());
-		if(cacheOverlay != null){
-			// If the existing cache overlay is being replaced, create a new cache overlay
-			if(tileTableCacheOverlay.getParent().isAdded()){
-				cacheOverlay = null;
-			}
-		}
-		if(cacheOverlay == null){
-			// Create a new GeoPackage tile provider and add to the map
-			TileDao tileDao = geoPackage.getTileDao(tileTableCacheOverlay.getTableName());
-			BoundedOverlay geoPackageTileProvider = GeoPackageOverlayFactory.getBoundedOverlay(tileDao);
-			TileOverlayOptions overlayOptions = null;
-			if(linkedToFeatures){
-				overlayOptions = createFeatureTileOverlayOptions(geoPackageTileProvider);
-			}else {
-				overlayOptions = createTileOverlayOptions(geoPackageTileProvider);
-			}
-			TileOverlay tileOverlay = map.addTileOverlay(overlayOptions);
-			tileTableCacheOverlay.setTileOverlay(tileOverlay);
-
-			// Check for linked feature tables
-			tileTableCacheOverlay.clearFeatureOverlayQueries();
-			FeatureTileTableLinker linker = new FeatureTileTableLinker(geoPackage);
-			List<FeatureDao> featureDaos = linker.getFeatureDaosForTileTable(tileDao.getTableName());
-			for(FeatureDao featureDao: featureDaos){
-
-				// Create the feature tiles
-				FeatureTiles featureTiles = new MapFeatureTiles(getActivity(), featureDao);
-
-				// Create an index manager
-				FeatureIndexManager indexer = new FeatureIndexManager(getActivity(), geoPackage, featureDao);
-				featureTiles.setIndexManager(indexer);
-
-				// Add the feature overlay query
-				FeatureOverlayQuery featureOverlayQuery = new FeatureOverlayQuery(getActivity(), geoPackageTileProvider, featureTiles);
-				tileTableCacheOverlay.addFeatureOverlayQuery(featureOverlayQuery);
-			}
-
-			cacheOverlay = tileTableCacheOverlay;
-		}
-		// Add the cache overlay to the enabled cache overlays
-		enabledCacheOverlays.put(cacheOverlay.getOverlayName(), cacheOverlay);
-	}
-
-	/**
-	 * Add the GeoPackage Feature Table Cache Overlay
-	 * @param enabledCacheOverlays
-	 * @param featureTableCacheOverlay
-	 * @param geoPackage
-	 */
-	private void addGeoPackageFeatureCacheOverlay(Map<String, CacheOverlay> enabledCacheOverlays, GeoPackageFeatureTableCacheOverlay featureTableCacheOverlay, GeoPackage geoPackage){
-		// Retrieve the cache overlay if it already exists (and remove from cache overlays)
-		CacheOverlay cacheOverlay = cacheOverlays.remove(featureTableCacheOverlay.getOverlayName());
-		if(cacheOverlay != null){
-			// If the existing cache overlay is being replaced, create a new cache overlay
-			if(featureTableCacheOverlay.getParent().isAdded()){
-				cacheOverlay = null;
-			}
-			for(GeoPackageTileTableCacheOverlay linkedTileTable: featureTableCacheOverlay.getLinkedTileTables()){
-				if(cacheOverlay != null){
-					// Add the existing linked tile cache overlays
-					addGeoPackageTileCacheOverlay(enabledCacheOverlays, linkedTileTable, geoPackage, true);
-				}
-				cacheOverlays.remove(linkedTileTable.getOverlayName());
-			}
-		}
-		if(cacheOverlay == null) {
-			// Add the features to the map
-			FeatureDao featureDao = geoPackage.getFeatureDao(featureTableCacheOverlay.getTableName());
-
-			// If indexed, add as a tile overlay
-			if(featureTableCacheOverlay.isIndexed()){
-				FeatureTiles featureTiles = new MapFeatureTiles(getActivity(), featureDao);
-				Integer maxFeaturesPerTile = null;
-				if(featureDao.getGeometryType() == GeometryType.POINT){
-					maxFeaturesPerTile = getResources().getInteger(R.integer.geopackage_feature_tiles_max_points_per_tile);
-				}else{
-					maxFeaturesPerTile = getResources().getInteger(R.integer.geopackage_feature_tiles_max_features_per_tile);
-				}
-				featureTiles.setMaxFeaturesPerTile(maxFeaturesPerTile);
-				NumberFeaturesTile numberFeaturesTile = new NumberFeaturesTile(getActivity());
-				// Adjust the max features number tile draw paint attributes here as needed to
-				// change how tiles are drawn when more than the max features exist in a tile
-				featureTiles.setMaxFeaturesTileDraw(numberFeaturesTile);
-				featureTiles.setIndexManager(new FeatureIndexManager(getActivity(), geoPackage, featureDao));
-				// Adjust the feature tiles draw paint attributes here as needed to change how
-				// features are drawn on tiles
-				FeatureOverlay featureOverlay = new FeatureOverlay(featureTiles);
-				featureOverlay.setMinZoom(featureTableCacheOverlay.getMinZoom());
-
-				FeatureTileTableLinker linker = new FeatureTileTableLinker(geoPackage);
-				List<TileDao> tileDaos = linker.getTileDaosForFeatureTable(featureDao.getTableName());
-				featureOverlay.ignoreTileDaos(tileDaos);
-
-				FeatureOverlayQuery featureOverlayQuery = new FeatureOverlayQuery(getActivity(), featureOverlay);
-				featureTableCacheOverlay.setFeatureOverlayQuery(featureOverlayQuery);
-				TileOverlayOptions overlayOptions = createFeatureTileOverlayOptions(featureOverlay);
-				TileOverlay tileOverlay = map.addTileOverlay(overlayOptions);
-				featureTableCacheOverlay.setTileOverlay(tileOverlay);
-			}
-			// Not indexed, add the features to the map
-			else {
-				int maxFeaturesPerTable = 0;
-				if(featureDao.getGeometryType() == GeometryType.POINT){
-					maxFeaturesPerTable = getResources().getInteger(R.integer.geopackage_features_max_points_per_table);
-				}else{
-					maxFeaturesPerTable = getResources().getInteger(R.integer.geopackage_features_max_features_per_table);
-				}
-				Projection projection = featureDao.getProjection();
-				GoogleMapShapeConverter shapeConverter = new GoogleMapShapeConverter(projection);
-				FeatureCursor featureCursor = featureDao.queryForAll();
-				try {
-					final int totalCount = featureCursor.getCount();
-					int count = 0;
-					while (featureCursor.moveToNext()) {
-						FeatureRow featureRow = featureCursor.getRow();
-						GeoPackageGeometryData geometryData = featureRow.getGeometry();
-						if (geometryData != null && !geometryData.isEmpty()) {
-							mil.nga.wkb.geom.Geometry geometry = geometryData.getGeometry();
-							if (geometry != null) {
-								GoogleMapShape shape = shapeConverter.toShape(geometry);
-								// Set the Shape Marker, PolylineOptions, and PolygonOptions here if needed to change color and style
-								featureTableCacheOverlay.addShapeToMap(featureRow.getId(), shape, map);
-
-								if(++count >= maxFeaturesPerTable){
-									if(count < totalCount){
-										Toast.makeText(mage, featureTableCacheOverlay.getTableName()
-												+ "- added " + count + " of " + totalCount, Toast.LENGTH_LONG).show();
-									}
-									break;
-								}
-							}
-						}
-					}
-				} finally {
-					featureCursor.close();
-				}
-			}
-
-			// Add linked tile tables
-			for(GeoPackageTileTableCacheOverlay linkedTileTable: featureTableCacheOverlay.getLinkedTileTables()){
-				addGeoPackageTileCacheOverlay(enabledCacheOverlays, linkedTileTable, geoPackage, true);
-			}
-
-			cacheOverlay = featureTableCacheOverlay;
-		}
-
-		// Add the cache overlay to the enabled cache overlays
-		enabledCacheOverlays.put(cacheOverlay.getOverlayName(), cacheOverlay);
-	}
-
-	/**
-	 * Create Feature Tile Overlay Options with the default z index for tile layers drawn from features
-	 * @param tileProvider
-	 * @return
-	 */
-	private TileOverlayOptions createFeatureTileOverlayOptions(TileProvider tileProvider){
-		return createTileOverlayOptions(tileProvider, -1);
-	}
-
-	/**
-	 * Create Tile Overlay Options with the default z index for tile layers
-	 * @param tileProvider
-	 * @return
-	 */
-	private TileOverlayOptions createTileOverlayOptions(TileProvider tileProvider){
-		return createTileOverlayOptions(tileProvider, -2);
-	}
-
-	/**
-	 * Create Tile Overlay Options for the Tile Provider using the z index
-	 * @param tileProvider
-	 * @param zIndex
-	 * @return
-	 */
-	private TileOverlayOptions createTileOverlayOptions(TileProvider tileProvider, int zIndex){
-		TileOverlayOptions overlayOptions = new TileOverlayOptions();
-		overlayOptions.tileProvider(tileProvider);
-		overlayOptions.zIndex(zIndex);
-		return overlayOptions;
 	}
 
 	private void updateStaticFeatureLayers() {

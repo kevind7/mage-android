@@ -1,5 +1,7 @@
 package mil.nga.giat.mage.map.cache;
 
+import com.google.android.gms.maps.GoogleMap;
+
 import java.io.File;
 import java.util.Set;
 
@@ -41,4 +43,7 @@ public interface CacheProvider {
      * @return a subset (possibly equal) to the given cache set
      */
     Set<CacheOverlay> refreshCaches(Set<CacheOverlay> existingCaches);
+
+
+    CacheOverlayOnMap createOverlayOnMapFromCache(CacheOverlay cache, GoogleMap map);
 }
