@@ -2,7 +2,6 @@ package mil.nga.giat.mage.map.cache;
 
 import android.content.Context;
 import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 import android.support.v4.util.LongSparseArray;
 import android.util.Log;
 import android.widget.Toast;
@@ -15,7 +14,6 @@ import com.google.android.gms.maps.model.TileOverlayOptions;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -90,29 +88,28 @@ public class GeoPackageCacheProvider implements CacheProvider {
     }
 
     @Override
-    public CacheOverlay importCacheFromFile(File cacheFile) throws CacheImportException {
+    public MapCache importCacheFromFile(File cacheFile) throws CacheImportException {
         String cacheName = getOrImportGeoPackageDatabase(cacheFile);
-        return createCacheOverlay(cacheName);
+        return createCache(cacheFile, cacheName);
     }
 
     @Override
-    public Set<CacheOverlay> refreshCaches(Set<CacheOverlay> existingCaches) {
-        Set<CacheOverlay> refreshed = new HashSet<>(existingCaches.size());
-        for (CacheOverlay cache : existingCaches) {
-            GeoPackageCacheOverlay gpCache = (GeoPackageCacheOverlay) cache;
-            File dbFile = geoPackageManager.getFile(gpCache.getOverlayName());
+    public Set<MapCache> refreshCaches(Set<MapCache> existingCaches) {
+        Set<MapCache> refreshed = new HashSet<>(existingCaches.size());
+        for (MapCache cache : existingCaches) {
+            File dbFile = geoPackageManager.getFile(cache.getName());
             if (!dbFile.exists() || !dbFile.canRead()) {
-                gpCache = null;
+                cache = null;
             }
-            if (dbFile.lastModified() > gpCache.getRefreshTimestamp()) {
-                gpCache = createCacheOverlay(gpCache.getOverlayName());
+            else if (dbFile.lastModified() > cache.getRefreshTimestamp()) {
+                cache = createCache(dbFile, cache.getName());
             }
             else {
-                gpCache.updateRefreshTimestamp();
+                cache.updateRefreshTimestamp();
             }
 
-            if (gpCache != null) {
-                refreshed.add(gpCache);
+            if (cache != null) {
+                refreshed.add(cache);
             }
         }
 
@@ -127,7 +124,7 @@ public class GeoPackageCacheProvider implements CacheProvider {
 //        geoPackageManager.deleteAllMissingExternal();
 //        List<String> externalDatabases = geoPackageManager.externalDatabases();
 //        for (String database : externalDatabases) {
-//            GeoPackageCacheOverlay cacheOverlay = createCacheOverlay(database);
+//            GeoPackageCacheOverlay cacheOverlay = createCache(database);
 //            if (cacheOverlay != null) {
 //                overlays.add(cacheOverlay);
 //            }
@@ -180,26 +177,24 @@ public class GeoPackageCacheProvider implements CacheProvider {
      * @param database
      * @return cache overlay
      */
-    private GeoPackageCacheOverlay createCacheOverlay(String database) {
+    private MapCache createCache(File sourceFile, String database) {
 
-        GeoPackageCacheOverlay cacheOverlay = null;
         GeoPackage geoPackage = null;
 
         // Add the GeoPackage overlay
         try {
             geoPackage = geoPackageManager.open(database);
-            List<GeoPackageTableCacheOverlay> tables = new ArrayList<>();
+            Set<CacheOverlay> tables = new HashSet<>();
 
             // GeoPackage tile tables, build a mapping between table name and the created cache overlays
             Map<String, GeoPackageTileTableCacheOverlay> tileCacheOverlays = new HashMap<>();
             List<String> tileTables = geoPackage.getTileTables();
             for (String tableName : tileTables) {
-                String tableCacheName = CacheOverlay.buildChildCacheName(database, tableName);
                 TileDao tileDao = geoPackage.getTileDao(tableName);
                 int count = tileDao.count();
                 int minZoom = (int) tileDao.getMinZoom();
                 int maxZoom = (int) tileDao.getMaxZoom();
-                GeoPackageTileTableCacheOverlay tableCache = new GeoPackageTileTableCacheOverlay(tableCacheName, database, tableName, count, minZoom, maxZoom);
+                GeoPackageTileTableCacheOverlay tableCache = new GeoPackageTileTableCacheOverlay(database, tableName, count, minZoom, maxZoom);
                 tileCacheOverlays.put(tableName, tableCache);
             }
 
@@ -210,7 +205,6 @@ public class GeoPackageCacheProvider implements CacheProvider {
             // GeoPackage feature tables
             List<String> featureTables = geoPackage.getFeatureTables();
             for (String tableName : featureTables) {
-                String tableCacheName = CacheOverlay.buildChildCacheName(database, tableName);
                 FeatureDao featureDao = geoPackage.getFeatureDao(tableName);
                 int count = featureDao.count();
                 FeatureIndexManager indexer = new FeatureIndexManager(context, geoPackage, featureDao);
@@ -240,17 +234,16 @@ public class GeoPackageCacheProvider implements CacheProvider {
                         }
                     }
                 }
-                GeoPackageFeatureTableCacheOverlay tableCache = new GeoPackageFeatureTableCacheOverlay(
-                    tableCacheName, database, tableName, count, minZoom, indexed, linkedTileTableCaches);
 
+                GeoPackageFeatureTableCacheOverlay tableCache = new GeoPackageFeatureTableCacheOverlay(
+                    database, tableName, count, minZoom, indexed, linkedTileTableCaches);
                 tables.add(tableCache);
             }
 
             // Add stand alone tile tables that were not linked to feature tables
             tables.addAll(tileCacheOverlays.values());
 
-            // Create the GeoPackage overlay with child tables
-            cacheOverlay = new GeoPackageCacheOverlay(database, tables);
+            return new MapCache(database, this.getClass(), sourceFile, tables);
         }
         catch (Exception e) {
             Log.e(LOG_NAME, "error creating GeoPackage cache", e);
@@ -261,73 +254,7 @@ public class GeoPackageCacheProvider implements CacheProvider {
             }
         }
 
-        return cacheOverlay;
-    }
-
-    class GeoPackageOnMap implements CacheOverlayOnMap {
-
-        private final GoogleMap map;
-        private final GeoPackageCacheOverlay cache;
-        TODO // add tables on map
-
-        public GeoPackageOnMap(GoogleMap map, GeoPackageCacheOverlay cache) {
-            this.map = map;
-            this.cache = cache;
-        }
-
-        @Override
-        public GoogleMap getMap() {
-            return map;
-        }
-
-        @NonNull
-        @Override
-        public CacheOverlay getCache() {
-            return cache;
-        }
-
-        @Override
-        public CacheOverlayOnMap addToMapWithVisibility(boolean visible) {
-            return null;
-        }
-
-        @Override
-        public CacheOverlayOnMap removeFromMap() {
-            return null;
-        }
-
-        @Override
-        public CacheOverlayOnMap zoomMapToBoundingBox() {
-            return null;
-        }
-
-        @NonNull
-        @Override
-        public CacheOverlayOnMap show() {
-            return null;
-        }
-
-        @NonNull
-        @Override
-        public CacheOverlayOnMap hide() {
-            return null;
-        }
-
-        @Nullable
-        @Override
-        public String onMapClick(LatLng latLng, MapView mapView) {
-            return null;
-        }
-
-        @Override
-        public boolean isOnMap() {
-            return false;
-        }
-
-        @Override
-        public boolean isVisible() {
-            return false;
-        }
+        return null;
     }
 
     class TileTableOnMap implements CacheOverlayOnMap {
@@ -454,6 +381,7 @@ public class GeoPackageCacheProvider implements CacheProvider {
         private final FeatureOverlayQuery query;
         /**
          * keys are feature IDs from GeoPackage table
+         * // TODO: initialize this on the background thread and pass it to GeoPackageFeatureTableCacheOverlay
          */
         private final LongSparseArray<GoogleMapShape> shapeOptions;
         private final LongSparseArray<GoogleMapShape> shapesOnMap;
@@ -611,22 +539,14 @@ public class GeoPackageCacheProvider implements CacheProvider {
     }
 
     public CacheOverlayOnMap createOverlayOnMapFromCache(CacheOverlay cache, GoogleMap map) {
-        if (cache instanceof GeoPackageCacheOverlay) {
-            List<GeoPackageTableCacheOverlay> tableCaches = new ArrayList<>(cache.getChildren().size());
-            for (CacheOverlay tableCache : cache.getChildren()) {
-                GeoPackageTableCacheOverlay tableOverlay = (GeoPackageTableCacheOverlay) createOverlayOnMapFromCache(tableCache, map);
-                tableCaches.add(tableOverlay);
-            }
-            return new GeoPackageOnMap(map, (GeoPackageCacheOverlay) cache);
-        }
-        else if (cache instanceof GeoPackageTileTableCacheOverlay) {
+        if (cache instanceof GeoPackageTileTableCacheOverlay) {
             return createOverlayOnMap((GeoPackageTileTableCacheOverlay) cache, map);
         }
         else if (cache instanceof GeoPackageFeatureTableCacheOverlay) {
             return createOverlayOnMap((GeoPackageFeatureTableCacheOverlay) cache, map);
         }
 
-        throw new IllegalArgumentException(getClass().getSimpleName() + " does not support " + cache + " of type " + cache.getType() );
+        throw new IllegalArgumentException(getClass().getSimpleName() + " does not support " + cache + " of type " + cache.getCacheType() );
     }
 
     private TileTableOnMap createOverlayOnMap(GeoPackageTileTableCacheOverlay tableCache, GoogleMap map) {

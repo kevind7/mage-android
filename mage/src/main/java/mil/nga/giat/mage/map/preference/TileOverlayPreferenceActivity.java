@@ -27,6 +27,7 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import mil.nga.giat.mage.R;
@@ -151,7 +152,8 @@ public class TileOverlayPreferenceActivity extends AppCompatActivity  {
 
         @Override
         public void onCacheOverlaysUpdated(CacheManager.CacheOverlayUpdate update) {
-            List<CacheOverlay> cacheOverlays = new ArrayList<>(update.allAvailable);
+//            List<CacheOverlay> cacheOverlays = new ArrayList<>(update.allAvailable);
+            List<CacheOverlay> cacheOverlays = Collections.emptyList();
             overlayAdapter = new OverlayAdapter(getActivity(), cacheOverlays);
             listView.setAdapter(overlayAdapter);
             listView.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
@@ -203,17 +205,17 @@ public class TileOverlayPreferenceActivity extends AppCompatActivity  {
             if (overlayAdapter != null) {
                 for (CacheOverlay cacheOverlay : overlayAdapter.getOverlays()) {
 
-                    boolean childAdded = false;
-                    for (CacheOverlay childCache : cacheOverlay.getChildren()) {
-                        if (childCache.isEnabled()) {
-                            overlays.add(childCache.getOverlayName());
-                            childAdded = true;
-                        }
-                    }
-
-                    if (!childAdded && cacheOverlay.isEnabled()) {
-                        overlays.add(cacheOverlay.getOverlayName());
-                    }
+//                    boolean childAdded = false;
+//                    for (CacheOverlay childCache : cacheOverlay.getChildren()) {
+//                        if (childCache.isEnabled()) {
+//                            overlays.add(childCache.getOverlayName());
+//                            childAdded = true;
+//                        }
+//                    }
+//
+//                    if (!childAdded && cacheOverlay.isEnabled()) {
+//                        overlays.add(cacheOverlay.getOverlayName());
+//                    }
                 }
             }
             return overlays;
@@ -225,8 +227,8 @@ public class TileOverlayPreferenceActivity extends AppCompatActivity  {
          */
         private void deleteCacheOverlayConfirm(final CacheOverlay cacheOverlay) {
             AlertDialog deleteDialog = new AlertDialog.Builder(getActivity())
-                    .setTitle("Delete Cache")
-                    .setMessage("Delete " + cacheOverlay.getOverlayName() + " Cache?")
+                    .setTitle("Delete MapCache")
+                    .setMessage("Delete " + cacheOverlay.getOverlayName() + " MapCache?")
                     .setPositiveButton("Delete",
 
                             new DialogInterface.OnClickListener() {
@@ -275,7 +277,7 @@ public class TileOverlayPreferenceActivity extends AppCompatActivity  {
     }
 
     /**
-     * Cache Overlay Expandable list adapter
+     * MapCache Overlay Expandable list adapter
      */
     public static class OverlayAdapter extends BaseExpandableListAdapter {
 
@@ -316,7 +318,8 @@ public class TileOverlayPreferenceActivity extends AppCompatActivity  {
 
         @Override
         public int getChildrenCount(int i) {
-            return overlays.get(i).getChildren().size();
+//            return overlays.get(i).getChildren().size();
+            return 0;
         }
 
         @Override
@@ -326,7 +329,8 @@ public class TileOverlayPreferenceActivity extends AppCompatActivity  {
 
         @Override
         public Object getChild(int i, int j) {
-            return overlays.get(i).getChildren().get(j);
+//            return overlays.get(i).getChildren().get(j);
+            return null;
         }
 
         @Override
@@ -364,15 +368,15 @@ public class TileOverlayPreferenceActivity extends AppCompatActivity  {
                 public void onClick(View v) {
                     boolean checked = ((CheckBox) v).isChecked();
 
-                    overlay.setEnabled(checked);
+//                    overlay.setEnabled(checked);
 
                     boolean modified = false;
-                    for (CacheOverlay childCache : overlay.getChildren()) {
-                        if (childCache.isEnabled() != checked) {
-                            childCache.setEnabled(checked);
-                            modified = true;
-                        }
-                    }
+//                    for (CacheOverlay childCache : overlay.getChildren()) {
+//                        if (childCache.isEnabled() != checked) {
+//                            childCache.setEnabled(checked);
+//                            modified = true;
+//                        }
+//                    }
 
                     if (modified) {
                         notifyDataSetChanged();
@@ -387,12 +391,12 @@ public class TileOverlayPreferenceActivity extends AppCompatActivity  {
                 imageView.setImageResource(-1);
             }
             cacheName.setText(overlay.getOverlayName());
-            if (overlay.isSupportsChildren()) {
-                childCount.setText("(" + getChildrenCount(i) + ")");
-            }else{
+//            if (overlay.isSupportsChildren()) {
+//                childCount.setText("(" + getChildrenCount(i) + ")");
+//            }else{
                 childCount.setText("");
-            }
-            checkBox.setChecked(overlay.isEnabled());
+//            }
+//            checkBox.setChecked(overlay.isEnabled());
 
             return view;
         }
@@ -405,8 +409,8 @@ public class TileOverlayPreferenceActivity extends AppCompatActivity  {
                 convertView = inflater.inflate(R.layout.cache_overlay_child, parent, false);
             }
 
-            final CacheOverlay overlay = overlays.get(groupPosition);
-            final CacheOverlay childCache = overlay.getChildren().get(childPosition);
+//            final CacheOverlay overlay = overlays.get(groupPosition);
+//            final CacheOverlay childCache = overlay.getChildren().get(childPosition);
 
             ImageView imageView = (ImageView) convertView.findViewById(R.id.cache_overlay_child_image);
             TextView tableName = (TextView) convertView.findViewById(R.id.cache_overlay_child_name);
@@ -418,45 +422,45 @@ public class TileOverlayPreferenceActivity extends AppCompatActivity  {
             checkBox.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    boolean checked = ((CheckBox) v).isChecked();
-
-                    childCache.setEnabled(checked);
-
-                    boolean modified = false;
-                    if (checked) {
-                        if (!overlay.isEnabled()) {
-                            overlay.setEnabled(true);
-                            modified = true;
-                        }
-                    } else if (overlay.isEnabled()) {
-                        modified = true;
-                        for (CacheOverlay childCache : overlay.getChildren()) {
-                            if (childCache.isEnabled()) {
-                                modified = false;
-                                break;
-                            }
-                        }
-                        if (modified) {
-                            overlay.setEnabled(false);
-                        }
-                    }
-
-                    if (modified) {
-                        notifyDataSetChanged();
-                    }
+//                    boolean checked = ((CheckBox) v).isChecked();
+//
+//                    childCache.setEnabled(checked);
+//
+//                    boolean modified = false;
+//                    if (checked) {
+//                        if (!overlay.isEnabled()) {
+//                            overlay.setEnabled(true);
+//                            modified = true;
+//                        }
+//                    } else if (overlay.isEnabled()) {
+//                        modified = true;
+//                        for (CacheOverlay childCache : overlay.getChildren()) {
+//                            if (childCache.isEnabled()) {
+//                                modified = false;
+//                                break;
+//                            }
+//                        }
+//                        if (modified) {
+//                            overlay.setEnabled(false);
+//                        }
+//                    }
+//
+//                    if (modified) {
+//                        notifyDataSetChanged();
+//                    }
                 }
             });
 
-            tableName.setText(childCache.getOverlayName());
-            info.setText(childCache.getInfo());
-            checkBox.setChecked(childCache.isEnabled());
-
-            Integer imageResource = childCache.getIconImageResourceId();
-            if (imageResource != null){
-                imageView.setImageResource(imageResource);
-            } else {
-                imageView.setImageResource(-1);
-            }
+//            tableName.setText(childCache.getOverlayName());
+//            info.setText(childCache.getInfo());
+//            checkBox.setChecked(childCache.isEnabled());
+//
+//            Integer imageResource = childCache.getIconImageResourceId();
+//            if (imageResource != null){
+//                imageView.setImageResource(imageResource);
+//            } else {
+//                imageView.setImageResource(-1);
+//            }
 
             return convertView;
         }

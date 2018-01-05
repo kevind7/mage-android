@@ -48,7 +48,6 @@ import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.withSettings;
 
 @RunWith(AndroidJUnit4.class)
 @SmallTest
@@ -57,7 +56,7 @@ public class CacheManagerTest {
     // had to do this to make Mockito generate a different class for
     // two mock providers, because it uses the same class for two
     // separate mock instances of CacheProvider directly, which is
-    // a collision for CacheOverlay.getType()
+    // a collision for CacheOverlay.getCacheType()
     static abstract class CatProvider implements CacheProvider {}
     static abstract class DogProvider implements CacheProvider {}
 
@@ -181,7 +180,7 @@ public class CacheManagerTest {
         verify(listener, timeout(1000)).onCacheOverlaysUpdated(updateCaptor.capture());
 
         CacheManager.CacheOverlayUpdate update = updateCaptor.getValue();
-        Set<CacheOverlay> overlays = cacheManager.getCacheOverlays();
+        Set<CacheOverlay> overlays = cacheManager.getCaches();
 
         assertThat(overlays.size(), is(1));
         assertThat(overlays, hasItem(catOverlay));
@@ -209,7 +208,7 @@ public class CacheManagerTest {
         verify(listener, timeout(1000)).onCacheOverlaysUpdated(updateCaptor.capture());
 
         CacheManager.CacheOverlayUpdate update = updateCaptor.getValue();
-        Set<CacheOverlay> overlays = cacheManager.getCacheOverlays();
+        Set<CacheOverlay> overlays = cacheManager.getCaches();
 
         assertThat(overlays.size(), is(2));
         assertThat(overlays, hasItems(cache1, cache2));
@@ -236,7 +235,7 @@ public class CacheManagerTest {
         verify(catProvider).refreshCaches(eq(Collections.<CacheOverlay>emptySet()));
 
         CacheManager.CacheOverlayUpdate update = updateCaptor.getValue();
-        Set<CacheOverlay> overlays = cacheManager.getCacheOverlays();
+        Set<CacheOverlay> overlays = cacheManager.getCaches();
 
         assertThat(overlays.size(), is(3));
         assertThat(overlays, hasItems(dogCache1, dogCache2, catCache));
@@ -262,7 +261,7 @@ public class CacheManagerTest {
         verify(dogProvider).refreshCaches(eq(Collections.<CacheOverlay>emptySet()));
         verify(catProvider).refreshCaches(eq(Collections.<CacheOverlay>emptySet()));
 
-        Set<CacheOverlay> overlays = cacheManager.getCacheOverlays();
+        Set<CacheOverlay> overlays = cacheManager.getCaches();
 
         assertThat(overlays.size(), is(3));
         assertThat(overlays, hasItems(dogCache1, dogCache2, catCache));
@@ -277,7 +276,7 @@ public class CacheManagerTest {
         verify(dogProvider).refreshCaches(eq(cacheSetWithCaches(dogCache1, dogCache2)));
         verify(catProvider).refreshCaches(eq(cacheSetWithCaches(catCache)));
 
-        overlays = cacheManager.getCacheOverlays();
+        overlays = cacheManager.getCaches();
         CacheManager.CacheOverlayUpdate update = updateCaptor.getValue();
 
         assertThat(overlays.size(), is(1));
@@ -298,7 +297,7 @@ public class CacheManagerTest {
 
         verify(listener, timeout(1000)).onCacheOverlaysUpdated(updateCaptor.capture());
 
-        Set<CacheOverlay> overlays = cacheManager.getCacheOverlays();
+        Set<CacheOverlay> overlays = cacheManager.getCaches();
         CacheManager.CacheOverlayUpdate update = updateCaptor.getValue();
 
         assertThat(overlays.size(), is(1));
@@ -316,7 +315,7 @@ public class CacheManagerTest {
 
         verify(listener, timeout(1000).times(2)).onCacheOverlaysUpdated(updateCaptor.capture());
 
-        Set<CacheOverlay> overlaysRefreshed = cacheManager.getCacheOverlays();
+        Set<CacheOverlay> overlaysRefreshed = cacheManager.getCaches();
         update = updateCaptor.getValue();
 
         assertThat(overlaysRefreshed, not(sameInstance(overlays)));

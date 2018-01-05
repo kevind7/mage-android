@@ -38,7 +38,6 @@ import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
 import android.webkit.WebView;
 import android.widget.FrameLayout;
-import android.widget.Toast;
 
 import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
@@ -57,9 +56,6 @@ import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.Marker;
-import com.google.android.gms.maps.model.TileOverlay;
-import com.google.android.gms.maps.model.TileOverlayOptions;
-import com.google.android.gms.maps.model.TileProvider;
 import com.google.common.collect.Sets;
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.geom.Point;
@@ -73,40 +69,15 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
 import mil.nga.geopackage.BoundingBox;
-import mil.nga.geopackage.GeoPackage;
 import mil.nga.geopackage.GeoPackageCache;
 import mil.nga.geopackage.GeoPackageManager;
-import mil.nga.geopackage.core.contents.Contents;
-import mil.nga.geopackage.core.contents.ContentsDao;
-import mil.nga.geopackage.extension.link.FeatureTileTableLinker;
 import mil.nga.geopackage.factory.GeoPackageFactory;
-import mil.nga.geopackage.features.index.FeatureIndexManager;
-import mil.nga.geopackage.features.user.FeatureCursor;
-import mil.nga.geopackage.features.user.FeatureDao;
-import mil.nga.geopackage.features.user.FeatureRow;
-import mil.nga.geopackage.geom.GeoPackageGeometryData;
-import mil.nga.geopackage.geom.map.GoogleMapShape;
-import mil.nga.geopackage.geom.map.GoogleMapShapeConverter;
-import mil.nga.geopackage.projection.Projection;
-import mil.nga.geopackage.projection.ProjectionConstants;
-import mil.nga.geopackage.projection.ProjectionFactory;
-import mil.nga.geopackage.projection.ProjectionTransform;
-import mil.nga.geopackage.tiles.TileBoundingBoxUtils;
-import mil.nga.geopackage.tiles.features.FeatureTiles;
-import mil.nga.geopackage.tiles.features.MapFeatureTiles;
-import mil.nga.geopackage.tiles.features.custom.NumberFeaturesTile;
-import mil.nga.geopackage.tiles.overlay.BoundedOverlay;
-import mil.nga.geopackage.tiles.overlay.FeatureOverlay;
-import mil.nga.geopackage.tiles.overlay.FeatureOverlayQuery;
-import mil.nga.geopackage.tiles.overlay.GeoPackageOverlayFactory;
-import mil.nga.geopackage.tiles.user.TileDao;
 import mil.nga.giat.mage.MAGE;
 import mil.nga.giat.mage.R;
 import mil.nga.giat.mage.filter.DateTimeFilter;
@@ -120,10 +91,6 @@ import mil.nga.giat.mage.map.cache.CacheOverlayOnMap;
 import mil.nga.giat.mage.map.cache.CacheOverlayOnMapManager;
 import mil.nga.giat.mage.map.cache.GeoPackageCacheOverlay;
 import mil.nga.giat.mage.map.cache.GeoPackageCacheProvider;
-import mil.nga.giat.mage.map.cache.GeoPackageFeatureTableCacheOverlay;
-import mil.nga.giat.mage.map.cache.GeoPackageTileTableCacheOverlay;
-import mil.nga.giat.mage.map.cache.XYZDirectoryCacheOverlay;
-import mil.nga.giat.mage.map.cache.XYZDirectoryCacheProvider;
 import mil.nga.giat.mage.map.marker.LocationMarkerCollection;
 import mil.nga.giat.mage.map.marker.MyHistoricalLocationMarkerCollection;
 import mil.nga.giat.mage.map.marker.ObservationMarkerCollection;
@@ -147,7 +114,6 @@ import mil.nga.giat.mage.sdk.event.IStaticFeatureEventListener;
 import mil.nga.giat.mage.sdk.exceptions.LayerException;
 import mil.nga.giat.mage.sdk.exceptions.UserException;
 import mil.nga.giat.mage.sdk.location.LocationService;
-import mil.nga.wkb.geom.GeometryType;
 
 public class MapFragment extends Fragment
 	implements OnMapReadyCallback, OnMapClickListener, OnMapLongClickListener, OnMarkerClickListener,
@@ -750,7 +716,7 @@ public class MapFragment extends Fragment
 		if(!cacheOverlays.isEmpty()) {
 			StringBuilder clickMessage = new StringBuilder();
 			for (CacheOverlay cacheOverlay : cacheOverlays.values()) {
-				String message = cacheOverlay.onMapClick(latLng, mapView, map);
+				String message = null; //cacheOverlay.onMapClick(latLng, mapView, map);
 				if(message != null){
 					if(clickMessage.length() > 0){
 						clickMessage.append("\n\n");
@@ -898,53 +864,60 @@ public class MapFragment extends Fragment
 	Set<CacheOverlay> availableOverlays;
 	// maintain z order and map coupling here
 	Map<CacheOverlay, CacheOverlayOnMap> overlaysOnMap;
+	List<CacheOverlayOnMap> overlayStack;
 
 	CacheOverlayOnMapManager overlaysManager;
 
 	// listener methods invoked from overlays list instance
 	public void onOverlayEnabled(CacheOverlay cache) {
-		overlaysManager.showCacheOverlay(cache);
+//		getOverlaysOnMapForCache(cache);
+//		if (!cache.isOnMap()) {
+//			cache.addToMapWithVisibility(true);
+//		}
+//		else {
+//			cache.show();
+//		}
 	}
 
 	public void onOverlayDisabled(CacheOverlay cache) {
-		overlaysManager.hideCacheOverlay(cache);
+//		overlaysManager.hideCacheOverlay(cache);
 	}
 
 	public void onOverlayOrderChanged(List<CacheOverlay> caches) {
-		overlaysManager.setOverlayZOrder(caches);
+//		overlaysManager.setOverlayZOrder(caches);
 	}
 
 	@Override
 	public void onCacheOverlaysUpdated(CacheManager.CacheOverlayUpdate update) {
 
-		for (CacheOverlay removed : update.removed) {
-			CacheOverlayOnMap onMap = overlaysOnMap.get(removed);
-			onMap.removeFromMap();
-		}
-
-		for (CacheOverlay updated : update.updated) {
-			CacheOverlayOnMap onMap = overlaysOnMap.remove(updated);
-			boolean visible = onMap.isVisible();
-			onMap.removeFromMap();
-			overlaysOnMap.put(updated, onMap);
-			onMap = updated.createOverlayOnMap(map);
-			if (visible) {
-				onMap.addToMap();
-			}
-		}
-
-		if (update.added.size() == 1) {
-			CacheOverlay explicitlyRequestedCache = update.added.iterator().next();
-			CacheOverlayOnMap onMap = explicitlyRequestedCache.createOverlayOnMap(map);
-			overlaysOnMap.put(explicitlyRequestedCache, onMap);
-			onMap.zoomMapToBoundingBox();
-		}
-		else {
-			for (CacheOverlay added : update.added) {
-				CacheOverlayOnMap onMap = added.createOverlayOnMap(map);
-				overlaysOnMap.put(added, onMap);
-			}
-		}
+//		for (CacheOverlay removed : update.removed) {
+//			CacheOverlayOnMap onMap = overlaysOnMap.get(removed);
+//			onMap.removeFromMap();
+//		}
+//
+//		for (CacheOverlay updated : update.updated) {
+//			CacheOverlayOnMap onMap = overlaysOnMap.remove(updated);
+//			boolean visible = onMap.isVisible();
+//			onMap.removeFromMap();
+//			overlaysOnMap.put(updated, onMap);
+//			onMap = updated.createOverlayOnMap(map);
+//			if (visible) {
+//				onMap.addToMap();
+//			}
+//		}
+//
+//		if (update.added.size() == 1) {
+//			CacheOverlay explicitlyRequestedCache = update.added.iterator().next();
+//			CacheOverlayOnMap onMap = explicitlyRequestedCache.createOverlayOnMap(map);
+//			overlaysOnMap.put(explicitlyRequestedCache, onMap);
+//			onMap.zoomMapToBoundingBox();
+//		}
+//		else {
+//			for (CacheOverlay added : update.added) {
+//				CacheOverlayOnMap onMap = added.createOverlayOnMap(map);
+//				overlaysOnMap.put(added, onMap);
+//			}
+//		}
 
 		// Load overlay order from preferences
 
@@ -956,27 +929,6 @@ public class MapFragment extends Fragment
 
 		// Reset the bounding box for newly added caches
 		addedCacheBoundingBox = null;
-
-		for (CacheOverlay cacheOverlay : update.allAvailable) {
-
-			// If this cache overlay potentially replaced by a new version
-			if (cacheOverlay.isAdded()) {
-				if (cacheOverlay.getType().equals(GeoPackageCacheProvider.class)) {
-					geoPackageCache.close(cacheOverlay.getOverlayName());
-				}
-			}
-
-			// TODO: move to CacheProvider impls
-			// The user has asked for this overlay
-			if (cacheOverlay.isEnabled()) {
-
-				if (cacheOverlay.isTypeOf(GeoPackageCacheProvider.class)) {
-					addGeoPackageCacheOverlay(enabledCacheOverlays, enabledGeoPackages, (GeoPackageCacheOverlay) cacheOverlay);
-				}
-			}
-
-			cacheOverlay.setAdded(false);
-		}
 
 		// Remove any overlays that are on the map but no longer selected in
 		// preferences, update the tile overlays to the enabled tile overlays

@@ -43,12 +43,12 @@ public class CacheManager {
     // TODO: will need this to restore functionality of identifying an explicitly added cache
     // through the sharing/open-with mechanism and zooming the map to it
     public static final class CacheOverlayUpdate {
-        public final Set<CacheOverlay> added;
-        public final Set<CacheOverlay> updated;
-        public final Set<CacheOverlay> removed;
-        public final Set<CacheOverlay> allAvailable;
+        public final Set<MapCache> added;
+        public final Set<MapCache> updated;
+        public final Set<MapCache> removed;
+        public final Set<MapCache> allAvailable;
 
-        private CacheOverlayUpdate(Set<CacheOverlay> added, Set<CacheOverlay> updated, Set<CacheOverlay> removed, Set<CacheOverlay> allAvailable) {
+        private CacheOverlayUpdate(Set<MapCache> added, Set<MapCache> updated, Set<MapCache> removed, Set<MapCache> allAvailable) {
             this.added = added;
             this.updated = updated;
             this.removed = removed;
@@ -109,7 +109,7 @@ public class CacheManager {
     private final CacheLocationProvider cacheLocations;
     private final List<CacheProvider> providers = new ArrayList<>();
     private final Collection<CacheOverlaysUpdateListener> cacheOverlayListeners = new ArrayList<>();
-    private Set<CacheOverlay> cacheOverlays = Collections.emptySet();
+    private Set<MapCache> caches = Collections.emptySet();
     private RefreshAvailableCachesTask refreshTask;
     private FindNewCacheFilesInProvidedLocationsTask findNewCacheFilesTask;
     private ImportCacheFileTask importCacheFilesForRefreshTask;
@@ -141,8 +141,8 @@ public class CacheManager {
         cacheOverlayListeners.remove(listener);
     }
 
-    public Set<CacheOverlay> getCacheOverlays() {
-        return cacheOverlays;
+    public Set<MapCache> getCaches() {
+        return caches;
     }
 
     /**
@@ -177,7 +177,7 @@ public class CacheManager {
             if (refreshTask == null) {
                 throw new IllegalStateException("import task for refresh finished but refresh task is null");
             }
-            refreshTask.executeOnExecutor(executor, cacheOverlays);
+            refreshTask.executeOnExecutor(executor, caches);
         }
         else {
             updateCaches(task, null);
@@ -199,7 +199,7 @@ public class CacheManager {
     }
 
     private void updateCaches(ImportCacheFileTask importTask, RefreshAvailableCachesTask refreshTask) {
-        Set<CacheOverlay> allIncoming;
+        Set<MapCache> allIncoming;
         try {
             CacheImportResult importResult = importTask.get();
             allIncoming = importResult.imported;
@@ -211,16 +211,16 @@ public class CacheManager {
             throw new IllegalStateException("unexpected error retrieving cache update results", e);
         }
 
-        Map<CacheOverlay,CacheOverlay> incomingIndex = new HashMap<>();
-        for (CacheOverlay cache : allIncoming) {
+        Map<MapCache, MapCache> incomingIndex = new HashMap<>();
+        for (MapCache cache : allIncoming) {
             incomingIndex.put(cache, cache);
         }
-        Set<CacheOverlay> added = new HashSet<>(allIncoming);
-        added.removeAll(cacheOverlays);
-        Set<CacheOverlay> removed = new HashSet<>();
-        Set<CacheOverlay> updated = new HashSet<>();
-        for (CacheOverlay existing : cacheOverlays) {
-            CacheOverlay incoming = incomingIndex.get(existing);
+        Set<MapCache> added = new HashSet<>(allIncoming);
+        added.removeAll(caches);
+        Set<MapCache> removed = new HashSet<>();
+        Set<MapCache> updated = new HashSet<>();
+        for (MapCache existing : caches) {
+            MapCache incoming = incomingIndex.get(existing);
             if (incoming == null) {
                 removed.add(existing);
             }
@@ -229,24 +229,24 @@ public class CacheManager {
             }
         }
 
-        cacheOverlays = Collections.unmodifiableSet(new HashSet<>(incomingIndex.keySet()));
+        caches = Collections.unmodifiableSet(new HashSet<>(incomingIndex.keySet()));
 
         CacheOverlayUpdate update = new CacheOverlayUpdate(
             Collections.unmodifiableSet(added),
             Collections.unmodifiableSet(updated),
             Collections.unmodifiableSet(removed),
-            cacheOverlays);
+            caches);
         for (CacheOverlaysUpdateListener listener : cacheOverlayListeners) {
             listener.onCacheOverlaysUpdated(update);
         }
     }
 
     private static class CacheImportResult {
-        private final Set<CacheOverlay> imported;
+        private final Set<MapCache> imported;
         // TODO: propagate failed imports to user somehow
         private final List<CacheImportException> failed;
 
-        private CacheImportResult(Set<CacheOverlay> imported, List<CacheImportException> failed) {
+        private CacheImportResult(Set<MapCache> imported, List<CacheImportException> failed) {
             this.imported = imported;
             this.failed = failed;
         }
@@ -254,7 +254,7 @@ public class CacheManager {
 
     private class ImportCacheFileTask extends AsyncTask<File, Void, CacheImportResult> {
 
-        private CacheOverlay importFromFirstCapableProvider(File cacheFile) throws CacheImportException {
+        private MapCache importFromFirstCapableProvider(File cacheFile) throws CacheImportException {
             for (CacheProvider provider : providers) {
                 if (!cacheFile.canRead()) {
                     throw new CacheImportException(cacheFile, "cache file is not readable or does not exist: " + cacheFile.getName());
@@ -268,10 +268,10 @@ public class CacheManager {
 
         @Override
         protected CacheImportResult doInBackground(File... files) {
-            Set<CacheOverlay> caches = new HashSet<>(files.length);
+            Set<MapCache> caches = new HashSet<>(files.length);
             List<CacheImportException> fails = new ArrayList<>(files.length);
             for (File cacheFile : files) {
-                CacheOverlay imported = null;
+                MapCache imported = null;
                 try {
                     imported = importFromFirstCapableProvider(cacheFile);
                     caches.add(imported);
@@ -289,23 +289,23 @@ public class CacheManager {
         }
     }
 
-    private final class RefreshAvailableCachesTask extends AsyncTask<Set<CacheOverlay>, Void, Set<CacheOverlay>> {
+    private final class RefreshAvailableCachesTask extends AsyncTask<Set<MapCache>, Void, Set<MapCache>> {
 
         @Override
-        protected Set<CacheOverlay> doInBackground(Set<CacheOverlay>... params) {
-            Map<Class<? extends CacheProvider>,Set<CacheOverlay>> cachesByProvider = new HashMap<>(providers.size());
-            Set<CacheOverlay> existingCaches = params[0];
-            for (CacheOverlay cache : existingCaches) {
-                Set<CacheOverlay> providerCaches = cachesByProvider.get(cache.getType());
+        protected Set<MapCache> doInBackground(Set<MapCache>... params) {
+            Map<Class<? extends CacheProvider>, Set<MapCache>> cachesByProvider = new HashMap<>(providers.size());
+            Set<MapCache> existingCaches = params[0];
+            for (MapCache cache : existingCaches) {
+                Set<MapCache> providerCaches = cachesByProvider.get(cache.getType());
                 if (providerCaches == null) {
                     providerCaches = new HashSet<>();
                     cachesByProvider.put(cache.getType(), providerCaches);
                 }
                 providerCaches.add(cache);
             }
-            Set<CacheOverlay> overlays = new HashSet<>();
+            Set<MapCache> overlays = new HashSet<>();
             for (CacheProvider provider : providers) {
-                Set<CacheOverlay> providerCaches = cachesByProvider.get(provider.getClass());
+                Set<MapCache> providerCaches = cachesByProvider.get(provider.getClass());
                 if (providerCaches == null) {
                     providerCaches = Collections.emptySet();
                 }
@@ -377,7 +377,7 @@ public class CacheManager {
         }
 
         @Override
-        protected void onPostExecute(Set<CacheOverlay> cacheOverlays) {
+        protected void onPostExecute(Set<MapCache> caches) {
             refreshFinished(this);
         }
     }

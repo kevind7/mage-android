@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.SortedSet;
 
 public class CacheOverlayOnMapManager implements CacheManager.CacheOverlaysUpdateListener {
 
@@ -28,13 +27,13 @@ public class CacheOverlayOnMapManager implements CacheManager.CacheOverlaysUpdat
     }
 
     public CacheOverlayOnMap createCacheOverlayOnMap(CacheOverlay cache) {
-        CacheProvider provider = providers.get(cache.getType());
+        CacheProvider provider = providers.get(cache.getCacheType());
         CacheOverlayOnMap overlay = provider.createOverlayOnMapFromCache(cache, map);
         overlays.add(overlay);
         return overlay;
     }
 
     private CacheProvider providerForOverlay(CacheOverlayOnMap overlay) {
-        return providers.get(overlay.getCache().getType());
+        return providers.get(overlay.getCache().getCacheType());
     }
 }

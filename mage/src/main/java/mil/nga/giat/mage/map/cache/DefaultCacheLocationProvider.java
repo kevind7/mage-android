@@ -57,24 +57,13 @@ public class DefaultCacheLocationProvider implements CacheManager.CacheLocationP
      */
     public static class CopyCacheStreamTask extends AsyncTask<Void, Void, String> {
 
-        /**
-         * Context
-         */
         private Context context;
-
         /**
          * Intent Uri used to launch MAGE
          */
         private Uri uri;
-
-        /**
-         * Cache file to create
-         */
         private File cacheFile;
-
-        /**
-         * Cache name
-         */
+        // TODO: this is not used for anything
         private String cacheName;
 
         /**

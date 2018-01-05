@@ -31,7 +31,7 @@ public interface CacheProvider {
      *
      * TODO: assumes one cache per file; child caches can get around this, but maybe that's not always the best model
      */
-    CacheOverlay importCacheFromFile(File cacheFile) throws CacheImportException;
+    MapCache importCacheFromFile(File cacheFile) throws CacheImportException;
 
     /**
      * Refresh the data in the given set of caches.  Return a new subset of the
@@ -42,7 +42,7 @@ public interface CacheProvider {
      * @param existingCaches a set of caches to refresh
      * @return a subset (possibly equal) to the given cache set
      */
-    Set<CacheOverlay> refreshCaches(Set<CacheOverlay> existingCaches);
+    Set<MapCache> refreshCaches(Set<MapCache> existingCaches);
 
 
     CacheOverlayOnMap createOverlayOnMapFromCache(CacheOverlay cache, GoogleMap map);
