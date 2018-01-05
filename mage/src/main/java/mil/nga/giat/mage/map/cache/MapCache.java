@@ -46,7 +46,7 @@ public class MapCache {
     }
 
     public boolean equals(Object obj) {
-        if (!(obj instanceof CacheOverlay)) {
+        if (!(obj instanceof MapCache)) {
             return false;
         }
         MapCache other = (MapCache) obj;
@@ -55,5 +55,9 @@ public class MapCache {
 
     public int hashCode() {
         return getName().hashCode();
+    }
+
+    public String toString() {
+        return getName() + ":" + getType().getSimpleName();
     }
 }

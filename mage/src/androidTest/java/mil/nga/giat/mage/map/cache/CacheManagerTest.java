@@ -195,15 +195,15 @@ public class CacheManagerTest {
         verify(listener, timeout(1000)).onCacheOverlaysUpdated(updateCaptor.capture());
 
         CacheManager.CacheOverlayUpdate update = updateCaptor.getValue();
-        Set<MapCache> overlays = cacheManager.getCaches();
+        Set<MapCache> caches = cacheManager.getCaches();
 
-        assertThat(overlays.size(), is(2));
-        assertThat(overlays, hasItems(cache1, cache2));
+        assertThat(caches.size(), is(2));
+        assertThat(caches, hasItems(cache1, cache2));
         assertThat(update.added.size(), is(2));
         assertThat(update.added, hasItems(cache1, cache2));
         assertTrue(update.updated.isEmpty());
         assertTrue(update.removed.isEmpty());
-        assertThat(update.allAvailable, sameInstance(overlays));
+        assertThat(update.allAvailable, sameInstance(caches));
     }
 
     @Test
@@ -222,15 +222,15 @@ public class CacheManagerTest {
         verify(catProvider).refreshCaches(eq(Collections.<MapCache>emptySet()));
 
         CacheManager.CacheOverlayUpdate update = updateCaptor.getValue();
-        Set<MapCache> overlays = cacheManager.getCaches();
+        Set<MapCache> caches = cacheManager.getCaches();
 
-        assertThat(overlays.size(), is(3));
-        assertThat(overlays, hasItems(dogCache1, dogCache2, catCache));
+        assertThat(caches.size(), is(3));
+        assertThat(caches, hasItems(dogCache1, dogCache2, catCache));
         assertThat(update.added.size(), is(3));
         assertThat(update.added, hasItems(dogCache1, dogCache2, catCache));
         assertTrue(update.updated.isEmpty());
         assertTrue(update.removed.isEmpty());
-        assertThat(update.allAvailable, sameInstance(overlays));
+        assertThat(update.allAvailable, sameInstance(caches));
     }
 
     @Test
@@ -248,10 +248,10 @@ public class CacheManagerTest {
         verify(dogProvider).refreshCaches(eq(Collections.<MapCache>emptySet()));
         verify(catProvider).refreshCaches(eq(Collections.<MapCache>emptySet()));
 
-        Set<MapCache> overlays = cacheManager.getCaches();
+        Set<MapCache> caches = cacheManager.getCaches();
 
-        assertThat(overlays.size(), is(3));
-        assertThat(overlays, hasItems(dogCache1, dogCache2, catCache));
+        assertThat(caches.size(), is(3));
+        assertThat(caches, hasItems(dogCache1, dogCache2, catCache));
 
         when(dogProvider.refreshCaches(ArgumentMatchers.<MapCache>anySet())).thenReturn(cacheSetWithCaches(dogCache2));
         when(catProvider.refreshCaches(ArgumentMatchers.<MapCache>anySet())).thenReturn(Collections.<MapCache>emptySet());
@@ -263,15 +263,15 @@ public class CacheManagerTest {
         verify(dogProvider).refreshCaches(eq(cacheSetWithCaches(dogCache1, dogCache2)));
         verify(catProvider).refreshCaches(eq(cacheSetWithCaches(catCache)));
 
-        overlays = cacheManager.getCaches();
+        caches = cacheManager.getCaches();
         CacheManager.CacheOverlayUpdate update = updateCaptor.getValue();
 
-        assertThat(overlays.size(), is(1));
-        assertThat(overlays, hasItem(dogCache2));
+        assertThat(caches.size(), is(1));
+        assertThat(caches, hasItem(dogCache2));
         assertThat(update.added, empty());
         assertThat(update.updated, empty());
         assertThat(update.removed, hasItems(dogCache1, catCache));
-        assertThat(update.allAvailable, sameInstance(overlays));
+        assertThat(update.allAvailable, sameInstance(caches));
     }
 
     @Test
@@ -284,11 +284,11 @@ public class CacheManagerTest {
 
         verify(listener, timeout(1000)).onCacheOverlaysUpdated(updateCaptor.capture());
 
-        Set<MapCache> overlays = cacheManager.getCaches();
+        Set<MapCache> caches = cacheManager.getCaches();
         CacheManager.CacheOverlayUpdate update = updateCaptor.getValue();
 
-        assertThat(overlays.size(), is(1));
-        assertThat(overlays, hasItem(dogOrig));
+        assertThat(caches.size(), is(1));
+        assertThat(caches, hasItem(dogOrig));
         assertThat(update.added.size(), is(1));
         assertThat(update.added, hasItem(dogOrig));
         assertThat(update.updated, empty());
@@ -305,7 +305,7 @@ public class CacheManagerTest {
         Set<MapCache> overlaysRefreshed = cacheManager.getCaches();
         update = updateCaptor.getValue();
 
-        assertThat(overlaysRefreshed, not(sameInstance(overlays)));
+        assertThat(overlaysRefreshed, not(sameInstance(caches)));
         assertThat(overlaysRefreshed.size(), is(1));
         assertThat(overlaysRefreshed, hasItem(sameInstance(dogUpdated)));
         assertThat(overlaysRefreshed, hasItem(dogOrig));
