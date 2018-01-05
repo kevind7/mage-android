@@ -656,14 +656,13 @@ public class GeoPackageCacheProvider implements CacheProvider {
 
     /**
      * Delete the GeoPackage cache overlay
-     * @param geoPackageCacheOverlay
      *
      * TODO: this was originally in TileOverlayPreferenceActivity to handle deleting on long press
      * this logic to go searching through directories to delete the cache file should be reworked
      */
-    private void deleteGeoPackageCacheOverlay(GeoPackageCacheOverlay geoPackageCacheOverlay){
+    private void deleteGeoPackageCacheOverlay(MapCache cache){
 
-        String database = geoPackageCacheOverlay.getOverlayName();
+        String database = cache.getName();
 
         // Get the GeoPackage file
         GeoPackageManager manager = GeoPackageFactory.getManager(context);
@@ -674,7 +673,8 @@ public class GeoPackageCacheProvider implements CacheProvider {
 
         // Attempt to delete the cache file if it is in the cache directory
         File pathDirectory = path.getParentFile();
-        if(path.canWrite() && pathDirectory != null) {
+        if (path.canWrite() && pathDirectory != null) {
+            // TODO: this should be in CacheManager
             Map<StorageUtility.StorageType, File> storageLocations = StorageUtility.getWritableStorageLocations();
             for (File storageLocation : storageLocations.values()) {
                 File root = new File(storageLocation, context.getString(R.string.overlay_cache_directory));
@@ -688,8 +688,8 @@ public class GeoPackageCacheProvider implements CacheProvider {
         // Check internal/external application storage
         File applicationCacheDirectory = DefaultCacheLocationProvider.getApplicationCacheDirectory(context);
         if (applicationCacheDirectory != null && applicationCacheDirectory.exists()) {
-            for (File cache : applicationCacheDirectory.listFiles()) {
-                if (cache.equals(path)) {
+            for (File cacheFile : applicationCacheDirectory.listFiles()) {
+                if (cacheFile.equals(path)) {
                     path.delete();
                     break;
                 }

@@ -89,8 +89,6 @@ import mil.nga.giat.mage.map.cache.CacheManager.CacheOverlaysUpdateListener;
 import mil.nga.giat.mage.map.cache.CacheOverlay;
 import mil.nga.giat.mage.map.cache.CacheOverlayOnMap;
 import mil.nga.giat.mage.map.cache.CacheOverlayOnMapManager;
-import mil.nga.giat.mage.map.cache.GeoPackageCacheOverlay;
-import mil.nga.giat.mage.map.cache.GeoPackageCacheProvider;
 import mil.nga.giat.mage.map.marker.LocationMarkerCollection;
 import mil.nga.giat.mage.map.marker.MyHistoricalLocationMarkerCollection;
 import mil.nga.giat.mage.map.marker.ObservationMarkerCollection;

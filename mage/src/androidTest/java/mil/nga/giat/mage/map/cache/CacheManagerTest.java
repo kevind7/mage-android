@@ -6,8 +6,6 @@ import android.os.AsyncTask;
 import android.support.test.filters.SmallTest;
 import android.support.test.runner.AndroidJUnit4;
 
-import com.google.android.gms.maps.GoogleMap;
-
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -62,22 +60,12 @@ public class CacheManagerTest {
 
     static class TestCacheOverlay extends CacheOverlay {
 
-        TestCacheOverlay(Class<? extends CacheProvider> type, String overlayName, boolean supportsChildren) {
-            super(type, overlayName, supportsChildren);
-        }
-
-        @Override
-        public CacheOverlayOnMap createOverlayOnMap(GoogleMap map) {
-            return null;
-        }
-
-        @Override
-        public void removeFromMap() {
-
+        TestCacheOverlay(String overlayName, String cacheName, Class<? extends CacheProvider> type) {
+            super(overlayName, cacheName, type);
         }
     }
 
-    private static Set<CacheOverlay> cacheSetWithCaches(CacheOverlay... caches) {
+    private static Set<MapCache> cacheSetWithCaches(MapCache... caches) {
         return Collections.unmodifiableSet(new HashSet<>(Arrays.asList(caches)));
     }
 
@@ -87,7 +75,6 @@ public class CacheManagerTest {
     @Rule
     public TestName testName = new TestName();
 
-    private Application context;
     private File cacheDir1;
     private File cacheDir2;
     private List<File> cacheDirs;
@@ -101,7 +88,7 @@ public class CacheManagerTest {
     @Before
     public void configureCacheManager() throws Exception {
 
-        context = Mockito.mock(Application.class);
+        Application context = Mockito.mock(Application.class);
 
         cacheDirs = Arrays.asList(
             cacheDir1 = testRoot.newFolder("cache1"),
@@ -114,7 +101,7 @@ public class CacheManagerTest {
         executor = mock(Executor.class);
         doAnswer(new Answer() {
             @Override
-            public Object answer(InvocationOnMock invocationOnMock) throws Throwable {
+            public Object answer(InvocationOnMock invocationOnMock) {
                 Runnable task = invocationOnMock.getArgument(0);
                 AsyncTask.SERIAL_EXECUTOR.execute(task);
                 return null;
@@ -126,14 +113,14 @@ public class CacheManagerTest {
 
         when(catProvider.isCacheFile(any(File.class))).thenAnswer(new Answer<Boolean>() {
             @Override
-            public Boolean answer(InvocationOnMock invocationOnMock) throws Throwable {
+            public Boolean answer(InvocationOnMock invocationOnMock) {
                 File file = invocationOnMock.getArgument(0);
                 return file.getName().toLowerCase().endsWith(".cat");
             }
         });
         when(dogProvider.isCacheFile(any(File.class))).thenAnswer(new Answer<Boolean>() {
             @Override
-            public Boolean answer(InvocationOnMock invocationOnMock) throws Throwable {
+            public Boolean answer(InvocationOnMock invocationOnMock) {
                 File file = invocationOnMock.getArgument(0);
                 return file.getName().toLowerCase().endsWith(".dog");
             }
@@ -169,9 +156,9 @@ public class CacheManagerTest {
 
     @Test
     public void addsImportedCacheOverlayToCacheOverlaySet() throws Exception {
-        TestCacheOverlay catOverlay = new TestCacheOverlay(catProvider.getClass(), testName.getMethodName(), false);
         File cacheFile = new File(cacheDir2, "data.cat");
-        when(catProvider.importCacheFromFile(cacheFile)).thenReturn(catOverlay);
+        MapCache catCache = new MapCache(cacheDir2.getName(), catProvider.getClass(), cacheFile, Collections.<CacheOverlay>emptySet());
+        when(catProvider.importCacheFromFile(cacheFile)).thenReturn(catCache);
 
         assertTrue(cacheFile.createNewFile());
 
@@ -180,23 +167,23 @@ public class CacheManagerTest {
         verify(listener, timeout(1000)).onCacheOverlaysUpdated(updateCaptor.capture());
 
         CacheManager.CacheOverlayUpdate update = updateCaptor.getValue();
-        Set<CacheOverlay> overlays = cacheManager.getCaches();
+        Set<MapCache> caches = cacheManager.getCaches();
 
-        assertThat(overlays.size(), is(1));
-        assertThat(overlays, hasItem(catOverlay));
+        assertThat(caches.size(), is(1));
+        assertThat(caches, hasItem(catCache));
         assertThat(update.added.size(), is(1));
-        assertThat(update.added, hasItem(catOverlay));
+        assertThat(update.added, hasItem(catCache));
         assertTrue(update.updated.isEmpty());
         assertTrue(update.removed.isEmpty());
-        assertThat(update.allAvailable, sameInstance(overlays));
+        assertThat(update.allAvailable, sameInstance(caches));
     }
 
     @Test
     public void refreshingFindsCachesInProvidedLocations() throws Exception {
         File cache1File = new File(cacheDir1, "pluto.dog");
         File cache2File = new File(cacheDir2, "figaro.cat");
-        CacheOverlay cache1 = new TestCacheOverlay(dogProvider.getClass(), cache1File.getName(), false);
-        CacheOverlay cache2 = new TestCacheOverlay(catProvider.getClass(), cache2File.getName(), false);
+        MapCache cache1 = new MapCache(cache1File.getName(), dogProvider.getClass(), cache1File, Collections.<CacheOverlay>emptySet());
+        MapCache cache2 = new MapCache(cache2File.getName(), catProvider.getClass(), cache2File, Collections.<CacheOverlay>emptySet());
         when(dogProvider.importCacheFromFile(cache1File)).thenReturn(cache1);
         when(catProvider.importCacheFromFile(cache2File)).thenReturn(cache2);
 
@@ -208,7 +195,7 @@ public class CacheManagerTest {
         verify(listener, timeout(1000)).onCacheOverlaysUpdated(updateCaptor.capture());
 
         CacheManager.CacheOverlayUpdate update = updateCaptor.getValue();
-        Set<CacheOverlay> overlays = cacheManager.getCaches();
+        Set<MapCache> overlays = cacheManager.getCaches();
 
         assertThat(overlays.size(), is(2));
         assertThat(overlays, hasItems(cache1, cache2));
@@ -220,22 +207,22 @@ public class CacheManagerTest {
     }
 
     @Test
-    public void refreshingGetsAvailableCachesFromProviders() throws Exception {
-        CacheOverlay dogCache1 = new TestCacheOverlay(dogProvider.getClass(), "dog1", false);
-        CacheOverlay dogCache2 = new TestCacheOverlay(dogProvider.getClass(), "dog2", false);
-        CacheOverlay catCache = new TestCacheOverlay(catProvider.getClass(), "cat1", false);
+    public void refreshingGetsAvailableCachesFromProviders() {
+        MapCache dogCache1 = new MapCache("dog1", dogProvider.getClass(), new File(cacheDir1, "dog1.dog"), Collections.<CacheOverlay>emptySet());
+        MapCache dogCache2 = new MapCache("dog2", dogProvider.getClass(), new File(cacheDir1, "dog2.dog"), Collections.<CacheOverlay>emptySet());
+        MapCache catCache = new MapCache("cat1", catProvider.getClass(), new File(cacheDir1, "cat1.cat"), Collections.<CacheOverlay>emptySet());
 
-        when(dogProvider.refreshCaches(ArgumentMatchers.<CacheOverlay>anySet())).thenReturn(cacheSetWithCaches(dogCache1, dogCache2));
-        when(catProvider.refreshCaches(ArgumentMatchers.<CacheOverlay>anySet())).thenReturn(cacheSetWithCaches(catCache));
+        when(dogProvider.refreshCaches(ArgumentMatchers.<MapCache>anySet())).thenReturn(cacheSetWithCaches(dogCache1, dogCache2));
+        when(catProvider.refreshCaches(ArgumentMatchers.<MapCache>anySet())).thenReturn(cacheSetWithCaches(catCache));
 
         cacheManager.refreshAvailableCaches();
 
         verify(listener, timeout(1000)).onCacheOverlaysUpdated(updateCaptor.capture());
-        verify(dogProvider).refreshCaches(eq(Collections.<CacheOverlay>emptySet()));
-        verify(catProvider).refreshCaches(eq(Collections.<CacheOverlay>emptySet()));
+        verify(dogProvider).refreshCaches(eq(Collections.<MapCache>emptySet()));
+        verify(catProvider).refreshCaches(eq(Collections.<MapCache>emptySet()));
 
         CacheManager.CacheOverlayUpdate update = updateCaptor.getValue();
-        Set<CacheOverlay> overlays = cacheManager.getCaches();
+        Set<MapCache> overlays = cacheManager.getCaches();
 
         assertThat(overlays.size(), is(3));
         assertThat(overlays, hasItems(dogCache1, dogCache2, catCache));
@@ -247,27 +234,27 @@ public class CacheManagerTest {
     }
 
     @Test
-    public void refreshingRemovesCachesNoLongerAvailable() throws Exception {
-        CacheOverlay dogCache1 = new TestCacheOverlay(dogProvider.getClass(), "dog1", false);
-        CacheOverlay dogCache2 = new TestCacheOverlay(dogProvider.getClass(), "dog2", false);
-        CacheOverlay catCache = new TestCacheOverlay(catProvider.getClass(), "cat1", false);
+    public void refreshingRemovesCachesNoLongerAvailable() {
+        MapCache dogCache1 = new MapCache("dog1", dogProvider.getClass(), new File(cacheDir1, "dog1.dog"), Collections.<CacheOverlay>emptySet());
+        MapCache dogCache2 = new MapCache("dog2", dogProvider.getClass(), new File(cacheDir1, "dog2.dog"), Collections.<CacheOverlay>emptySet());
+        MapCache catCache = new MapCache("cat1", catProvider.getClass(), new File(cacheDir1, "cat1.cat"), Collections.<CacheOverlay>emptySet());
 
-        when(dogProvider.refreshCaches(ArgumentMatchers.<CacheOverlay>anySet())).thenReturn(cacheSetWithCaches(dogCache1, dogCache2));
-        when(catProvider.refreshCaches(ArgumentMatchers.<CacheOverlay>anySet())).thenReturn(cacheSetWithCaches(catCache));
+        when(dogProvider.refreshCaches(ArgumentMatchers.<MapCache>anySet())).thenReturn(cacheSetWithCaches(dogCache1, dogCache2));
+        when(catProvider.refreshCaches(ArgumentMatchers.<MapCache>anySet())).thenReturn(cacheSetWithCaches(catCache));
 
         cacheManager.refreshAvailableCaches();
 
         verify(listener, timeout(1000)).onCacheOverlaysUpdated(updateCaptor.capture());
-        verify(dogProvider).refreshCaches(eq(Collections.<CacheOverlay>emptySet()));
-        verify(catProvider).refreshCaches(eq(Collections.<CacheOverlay>emptySet()));
+        verify(dogProvider).refreshCaches(eq(Collections.<MapCache>emptySet()));
+        verify(catProvider).refreshCaches(eq(Collections.<MapCache>emptySet()));
 
-        Set<CacheOverlay> overlays = cacheManager.getCaches();
+        Set<MapCache> overlays = cacheManager.getCaches();
 
         assertThat(overlays.size(), is(3));
         assertThat(overlays, hasItems(dogCache1, dogCache2, catCache));
 
-        when(dogProvider.refreshCaches(ArgumentMatchers.<CacheOverlay>anySet())).thenReturn(cacheSetWithCaches(dogCache2));
-        when(catProvider.refreshCaches(ArgumentMatchers.<CacheOverlay>anySet())).thenReturn(Collections.<CacheOverlay>emptySet());
+        when(dogProvider.refreshCaches(ArgumentMatchers.<MapCache>anySet())).thenReturn(cacheSetWithCaches(dogCache2));
+        when(catProvider.refreshCaches(ArgumentMatchers.<MapCache>anySet())).thenReturn(Collections.<MapCache>emptySet());
 
         cacheManager.refreshAvailableCaches();
 
@@ -288,16 +275,16 @@ public class CacheManagerTest {
     }
 
     @Test
-    public void refreshingUpdatesExistingCachesThatChanged() throws Exception {
-        CacheOverlay dogOrig = new TestCacheOverlay(dogProvider.getClass(), "dog1", false);
+    public void refreshingUpdatesExistingCachesThatChanged() {
+        MapCache dogOrig = new MapCache("dog1", dogProvider.getClass(), new File(cacheDir1, "dog1.dog"), Collections.<CacheOverlay>emptySet());
 
-        when(dogProvider.refreshCaches(ArgumentMatchers.<CacheOverlay>anySet())).thenReturn(cacheSetWithCaches(dogOrig));
+        when(dogProvider.refreshCaches(ArgumentMatchers.<MapCache>anySet())).thenReturn(cacheSetWithCaches(dogOrig));
 
         cacheManager.refreshAvailableCaches();
 
         verify(listener, timeout(1000)).onCacheOverlaysUpdated(updateCaptor.capture());
 
-        Set<CacheOverlay> overlays = cacheManager.getCaches();
+        Set<MapCache> overlays = cacheManager.getCaches();
         CacheManager.CacheOverlayUpdate update = updateCaptor.getValue();
 
         assertThat(overlays.size(), is(1));
@@ -307,15 +294,15 @@ public class CacheManagerTest {
         assertThat(update.updated, empty());
         assertThat(update.removed, empty());
 
-        CacheOverlay dogUpdated = new TestCacheOverlay(dogProvider.getClass(), "dog1", false);
+        MapCache dogUpdated = new MapCache("dog1", dogProvider.getClass(), new File(cacheDir1, "dog1.dog"), Collections.<CacheOverlay>emptySet());
 
-        when(dogProvider.refreshCaches(ArgumentMatchers.<CacheOverlay>anySet())).thenReturn(cacheSetWithCaches(dogUpdated));
+        when(dogProvider.refreshCaches(ArgumentMatchers.<MapCache>anySet())).thenReturn(cacheSetWithCaches(dogUpdated));
 
         cacheManager.refreshAvailableCaches();
 
         verify(listener, timeout(1000).times(2)).onCacheOverlaysUpdated(updateCaptor.capture());
 
-        Set<CacheOverlay> overlaysRefreshed = cacheManager.getCaches();
+        Set<MapCache> overlaysRefreshed = cacheManager.getCaches();
         update = updateCaptor.getValue();
 
         assertThat(overlaysRefreshed, not(sameInstance(overlays)));
@@ -333,7 +320,7 @@ public class CacheManagerTest {
         final boolean[] overrodeMock = new boolean[]{false};
         doAnswer(new Answer() {
             @Override
-            public Object answer(InvocationOnMock invocation) throws Throwable {
+            public Object answer(InvocationOnMock invocation) {
                 // make sure this answer overrides the one in the setup method
                 overrodeMock[0] = true;
                 return null;
@@ -354,7 +341,7 @@ public class CacheManagerTest {
 
         doAnswer(new Answer() {
             @Override
-            public Object answer(InvocationOnMock invocation) throws Throwable {
+            public Object answer(InvocationOnMock invocation) {
                 final Runnable task = invocation.getArgument(0);
                 final Runnable blocked = new Runnable() {
                     @Override
@@ -378,8 +365,8 @@ public class CacheManagerTest {
             }
         }).when(executor).execute(any(Runnable.class));
 
-        when(catProvider.refreshCaches(ArgumentMatchers.<CacheOverlay>anySet())).thenReturn(Collections.<CacheOverlay>emptySet());
-        when(dogProvider.refreshCaches(ArgumentMatchers.<CacheOverlay>anySet())).thenReturn(Collections.<CacheOverlay>emptySet());
+        when(catProvider.refreshCaches(ArgumentMatchers.<MapCache>anySet())).thenReturn(Collections.<MapCache>emptySet());
+        when(dogProvider.refreshCaches(ArgumentMatchers.<MapCache>anySet())).thenReturn(Collections.<MapCache>emptySet());
 
         cacheManager.refreshAvailableCaches();
 
