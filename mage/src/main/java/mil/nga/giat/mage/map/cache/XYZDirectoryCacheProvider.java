@@ -37,7 +37,7 @@ public class XYZDirectoryCacheProvider implements CacheProvider {
 
         @NonNull
         @Override
-        public CacheOverlay getCache() {
+        public CacheOverlay getCacheOverlay() {
             return cache;
         }
 
@@ -119,7 +119,7 @@ public class XYZDirectoryCacheProvider implements CacheProvider {
     @Override
     public Set<MapCache> refreshCaches(Set<MapCache> existingCaches) {
         // TODO
-        return null;
+        return Collections.emptySet();
     }
 
     @Override

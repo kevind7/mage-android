@@ -1,12 +1,16 @@
 package mil.nga.giat.mage.map.cache;
 
+import android.support.annotation.MainThread;
+
 import com.google.android.gms.maps.GoogleMap;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+@MainThread
 public class CacheOverlayOnMapManager implements CacheManager.CacheOverlaysUpdateListener {
 
     private final CacheManager cacheManager;
@@ -26,14 +30,22 @@ public class CacheOverlayOnMapManager implements CacheManager.CacheOverlaysUpdat
     public void onCacheOverlaysUpdated(CacheManager.CacheOverlayUpdate update) {
     }
 
-    public CacheOverlayOnMap createCacheOverlayOnMap(CacheOverlay cache) {
+    public CacheOverlayOnMap createOverlayOnMap(CacheOverlay cache) {
         CacheProvider provider = providers.get(cache.getCacheType());
         CacheOverlayOnMap overlay = provider.createOverlayOnMapFromCache(cache, map);
         overlays.add(overlay);
         return overlay;
     }
 
-    private CacheProvider providerForOverlay(CacheOverlayOnMap overlay) {
-        return providers.get(overlay.getCache().getCacheType());
+    public List<CacheOverlayOnMap> getOverlays() {
+        return Collections.unmodifiableList(overlays);
+    }
+
+    public void enableOverlay(CacheOverlayOnMap overlay) {
+
+    }
+
+    public void disableOverlay(CacheOverlayOnMap overlay) {
+
     }
 }

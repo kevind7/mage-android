@@ -18,8 +18,10 @@ import android.support.annotation.Nullable;
 import android.support.constraint.ConstraintLayout;
 import android.support.constraint.ConstraintSet;
 import android.support.design.widget.FloatingActionButton;
+import android.support.transition.Transition;
 import android.support.transition.TransitionManager;
 import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentManager;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.graphics.drawable.DrawableCompat;
 import android.support.v7.app.AlertDialog;
@@ -75,9 +77,6 @@ import java.util.Map;
 import java.util.Set;
 
 import mil.nga.geopackage.BoundingBox;
-import mil.nga.geopackage.GeoPackageCache;
-import mil.nga.geopackage.GeoPackageManager;
-import mil.nga.geopackage.factory.GeoPackageFactory;
 import mil.nga.giat.mage.MAGE;
 import mil.nga.giat.mage.R;
 import mil.nga.giat.mage.filter.DateTimeFilter;
@@ -88,7 +87,6 @@ import mil.nga.giat.mage.map.cache.CacheManager;
 import mil.nga.giat.mage.map.cache.CacheManager.CacheOverlaysUpdateListener;
 import mil.nga.giat.mage.map.cache.CacheOverlay;
 import mil.nga.giat.mage.map.cache.CacheOverlayOnMap;
-import mil.nga.giat.mage.map.cache.CacheOverlayOnMapManager;
 import mil.nga.giat.mage.map.marker.LocationMarkerCollection;
 import mil.nga.giat.mage.map.marker.MyHistoricalLocationMarkerCollection;
 import mil.nga.giat.mage.map.marker.ObservationMarkerCollection;
@@ -122,6 +120,7 @@ public class MapFragment extends Fragment
 	private static final String LOG_NAME = MapFragment.class.getName();
 	private static final int PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION = 1;
 	private static final int MARKER_REFRESH_INTERVAL_SECONDS = 300;
+	private static final String STATE_OVERLAYS_EXPANDED = MapFragment.class.getSimpleName() + ".overlays_expanded";
 
 	private class RefreshMarkersRunnable implements Runnable {
 		private final PointCollection<?> points;
@@ -159,10 +158,9 @@ public class MapFragment extends Fragment
 	private RefreshMarkersRunnable refreshLocationsTask;
 	private RefreshMarkersRunnable refreshHistoricLocationsTask;
 
-	private Map<String, CacheOverlay> cacheOverlays = new HashMap<>();
+	private Map<String, CacheOverlayOnMap> overlays = new HashMap<>();
 
-	// GeoPackage cache of open GeoPackage connections
-	private GeoPackageCache geoPackageCache;
+	// TODO: restore the functionality for this
 	private BoundingBox addedCacheBoundingBox;
 
 	private FloatingActionButton searchButton;
@@ -185,8 +183,6 @@ public class MapFragment extends Fragment
 		mage = (MAGE) getContext().getApplicationContext();
 		preferences = PreferenceManager.getDefaultSharedPreferences(mage);
 		locationService = mage.getLocationService();
-		GeoPackageManager geoPackageManager = GeoPackageFactory.getManager(mage);
-		geoPackageCache = new GeoPackageCache(geoPackageManager);
 
 		// creating the MapView here should preserve it across configuration/layout changes - onConfigurationChanged()
 		// and avoid redrawing map and markers and whatnot
@@ -306,11 +302,11 @@ public class MapFragment extends Fragment
 		map.setOnInfoWindowClickListener(null);
 		map.clear();
 
-		// Close all open GeoPackages
-		geoPackageCache.closeAll();
+		// TODO: move clean up in GeoPackageCacheProvider
+//		geoPackageCache.closeAll();
 
-		cacheOverlays.clear();
-		cacheOverlays = null;
+		overlays.clear();
+		overlays = null;
 		staticGeometryCollection.clear();
 		staticGeometryCollection = null;
 		currentUser = null;
@@ -321,6 +317,7 @@ public class MapFragment extends Fragment
 	public void onSaveInstanceState(Bundle outState) {
 		super.onSaveInstanceState(outState);
 		mapView.onSaveInstanceState(outState);
+		outState.putBoolean(STATE_OVERLAYS_EXPANDED, overlaysExpanded);
 	}
 
 	@Override
@@ -348,6 +345,7 @@ public class MapFragment extends Fragment
 		constraintLayout = (ConstraintLayout) inflater.inflate(R.layout.fragment_map, container, false);
 		layoutOverlaysCollapsed.clone(constraintLayout);
 		layoutOverlaysExpanded.load(getContext(), R.layout.fragment_map_expanded_overlays);
+		// TODO: load proper saved state of expanded/collapsed
 
 		staticGeometryCollection = new StaticGeometryCollection();
 
@@ -380,8 +378,10 @@ public class MapFragment extends Fragment
 		// if the latter, how to propagate the saved state to the child fragment?  want the child fragment
 		// to inflate its ui again for configuration changes, but this fragment is retained across config
 		// chnages, so how does that affect lifecycle?
-		MapOverlaysFragment overlaysFragment = MapOverlaysFragment.newInstance();
-		getChildFragmentManager().beginTransaction().add(R.id.map_overlays_container, overlaysFragment).commit();
+		if (savedInstanceState != null) {
+        	overlaysExpanded = savedInstanceState.getBoolean(STATE_OVERLAYS_EXPANDED, false);
+		}
+		reconcileOverlaysPanelState();
 
 		container.addView(constraintLayout);
 		return container;
@@ -447,7 +447,8 @@ public class MapFragment extends Fragment
 			map.setMyLocationEnabled(true);
 			map.setLocationSource(this);
 			locationService.registerOnLocationListener(this);
-		} else {
+		}
+		else {
 			map.setMyLocationEnabled(false);
 			map.setLocationSource(null);
 		}
@@ -492,7 +493,7 @@ public class MapFragment extends Fragment
 		map.animateCamera(cameraUpdate);
 	}
 
-	private void search() {
+	private void onSearch() {
 		boolean isVisible = searchLayout.getVisibility() == View.VISIBLE;
 		searchLayout.setVisibility(isVisible ? View.GONE : View.VISIBLE);
 		searchButton.setSelected(!isVisible);
@@ -503,6 +504,28 @@ public class MapFragment extends Fragment
 			searchView.requestFocus();
 			InputMethodManager inputMethodManager = (InputMethodManager) getActivity().getSystemService(Activity.INPUT_METHOD_SERVICE);
 			inputMethodManager.toggleSoftInput(InputMethodManager.SHOW_IMPLICIT, 0);
+		}
+	}
+
+	private void onOverlaysToggled() {
+		overlaysExpanded = !overlaysExpanded;
+		reconcileOverlaysPanelState();
+    }
+
+	private void reconcileOverlaysPanelState() {
+		FragmentManager fragmentManager = getChildFragmentManager();
+		TransitionManager.beginDelayedTransition(constraintLayout);
+		if (overlaysExpanded) {
+			layoutOverlaysExpanded.applyTo(constraintLayout);
+			Fragment overlays = Fragment.instantiate(getActivity(), MapOverlaysFragment.class.getName());
+			fragmentManager.beginTransaction().replace(R.id.map_overlays_container, overlays).commit();
+		}
+		else {
+			layoutOverlaysCollapsed.applyTo(constraintLayout);
+			Fragment overlays = fragmentManager.findFragmentById(R.id.map_overlays_container);
+			if (overlays != null) {
+				fragmentManager.beginTransaction().remove(overlays).commit();
+			}
 		}
 	}
 
@@ -711,24 +734,25 @@ public class MapFragment extends Fragment
 
 		staticGeometryCollection.onMapClick(map, latLng, getActivity());
 
-		if(!cacheOverlays.isEmpty()) {
-			StringBuilder clickMessage = new StringBuilder();
-			for (CacheOverlay cacheOverlay : cacheOverlays.values()) {
-				String message = null; //cacheOverlay.onMapClick(latLng, mapView, map);
-				if(message != null){
-					if(clickMessage.length() > 0){
-						clickMessage.append("\n\n");
-					}
-					clickMessage.append(message);
-				}
-			}
-			if(clickMessage.length() > 0) {
-				new AlertDialog.Builder(getActivity())
-					.setMessage(clickMessage.toString())
-					.setPositiveButton(android.R.string.yes, null)
-					.show();
-			}
-		}
+		// TODO: handle overlay clicks
+//		if(!overlays.isEmpty()) {
+//			StringBuilder clickMessage = new StringBuilder();
+//			for (CacheOverlay cacheOverlay : overlays.values()) {
+//				String message = null; //cacheOverlay.onMapClick(latLng, mapView, map);
+//				if(message != null){
+//					if(clickMessage.length() > 0){
+//						clickMessage.append("\n\n");
+//					}
+//					clickMessage.append(message);
+//				}
+//			}
+//			if(clickMessage.length() > 0) {
+//				new AlertDialog.Builder(getActivity())
+//					.setMessage(clickMessage.toString())
+//					.setPositiveButton(android.R.string.yes, null)
+//					.show();
+//			}
+//		}
 	}
 
 	@Override
@@ -762,20 +786,10 @@ public class MapFragment extends Fragment
 			case R.id.zoom_button:
 				onZoom();
 			case R.id.map_search_button:
-				search();
+				onSearch();
 				return;
 			case R.id.map_layer_options:
-				View overlaysContainer = getView().findViewById(R.id.map_overlays_container);
-				TransitionManager.beginDelayedTransition(constraintLayout);
-				if (overlaysExpanded) {
-					layoutOverlaysCollapsed.applyTo(constraintLayout);
-				}
-				else {
-					MapOverlaysFragment overlaysFragment = (MapOverlaysFragment) Fragment.instantiate(getActivity(), MapOverlaysFragment.class.getName());
-					getChildFragmentManager().beginTransaction().replace(R.id.map_overlays_container, overlaysFragment).commitNow();
-					layoutOverlaysExpanded.applyTo(constraintLayout);
-				}
-				overlaysExpanded = !overlaysExpanded;
+			    onOverlaysToggled();
 				return;
 			case R.id.new_observation_button:
 				onNewObservation();
@@ -859,105 +873,124 @@ public class MapFragment extends Fragment
 	public void onProviderDisabled(String provider) {
 	}
 
-	Set<CacheOverlay> availableOverlays;
 	// maintain z order and map coupling here
 	Map<CacheOverlay, CacheOverlayOnMap> overlaysOnMap;
-	List<CacheOverlayOnMap> overlayStack;
+	List<CacheOverlay> overlayZOrder;
 
-	CacheOverlayOnMapManager overlaysManager;
+	private CacheOverlayOnMap overlayOnMapForCache(CacheOverlay cache) {
+		return overlaysOnMap.get(cache);
+	}
 
 	// listener methods invoked from overlays list instance
 	public void onOverlayEnabled(CacheOverlay cache) {
-//		getOverlaysOnMapForCache(cache);
-//		if (!cache.isOnMap()) {
-//			cache.addToMapWithVisibility(true);
-//		}
-//		else {
-//			cache.show();
-//		}
+		CacheOverlayOnMap overlay = overlayOnMapForCache(cache);
+		if (!overlay.isOnMap()) {
+			overlay.addToMapWithVisibility(true);
+		}
+		else {
+			overlay.show();
+		}
 	}
 
 	public void onOverlayDisabled(CacheOverlay cache) {
-//		overlaysManager.hideCacheOverlay(cache);
+		CacheOverlayOnMap overlay = overlayOnMapForCache(cache);
+		if (overlay.isOnMap()) {
+			overlay.removeFromMap();
+		}
 	}
 
-	public void onOverlayOrderChanged(List<CacheOverlay> caches) {
-//		overlaysManager.setOverlayZOrder(caches);
+	public void onShowOverlay(CacheOverlay cache) {
+		overlayOnMapForCache(cache).show();
+	}
+
+	public void onHideOverlay(CacheOverlay cache) {
+		overlayOnMapForCache(cache).hide();
+	}
+
+	public void onOverlayZOrderChanged(List<CacheOverlay> caches) {
+
 	}
 
 	@Override
 	public void onCacheOverlaysUpdated(CacheManager.CacheOverlayUpdate update) {
 
-//		for (CacheOverlay removed : update.removed) {
-//			CacheOverlayOnMap onMap = overlaysOnMap.get(removed);
-//			onMap.removeFromMap();
+//		for (MapCache removed : update.removed) {
+//			for (CacheOverlay cacheOverlay : removed.getCacheOverlays()) {
+//				CacheOverlayOnMap onMap = overlaysOnMap.remove(cacheOverlay);
+//				if (onMap != null) {
+//					onMap.removeFromMap();
+//				}
+//			}
 //		}
 //
-//		for (CacheOverlay updated : update.updated) {
-//			CacheOverlayOnMap onMap = overlaysOnMap.remove(updated);
+//		Set<CacheOverlay> updatedOnMap = new HashSet<>(overlaysOnMap.size());
+//		for (MapCache updated : update.updated) {
+//			for (CacheOverlay cacheOverlay : updated.getCacheOverlays()) {
+//				if (overlaysOnMap.containsKey(cacheOverlay)) {
+//					updatedOnMap.add(cacheOverlay);
+//				}
+//			}
+//		}
+//		for (CacheOverlay cacheOverlay : updatedOnMap) {
+//			CacheOverlayOnMap onMap = overlaysOnMap.remove(cacheOverlay);
 //			boolean visible = onMap.isVisible();
 //			onMap.removeFromMap();
-//			overlaysOnMap.put(updated, onMap);
-//			onMap = updated.createOverlayOnMap(map);
-//			if (visible) {
-//				onMap.addToMap();
-//			}
+//			onMap = CacheManager.getInstance().createOverlayOnMap(map, cacheOverlay);
+//			overlaysOnMap.put(cacheOverlay, onMap.addToMapWithVisibility(visible));
 //		}
 //
 //		if (update.added.size() == 1) {
-//			CacheOverlay explicitlyRequestedCache = update.added.iterator().next();
-//			CacheOverlayOnMap onMap = explicitlyRequestedCache.createOverlayOnMap(map);
-//			overlaysOnMap.put(explicitlyRequestedCache, onMap);
-//			onMap.zoomMapToBoundingBox();
-//		}
-//		else {
-//			for (CacheOverlay added : update.added) {
-//				CacheOverlayOnMap onMap = added.createOverlayOnMap(map);
-//				overlaysOnMap.put(added, onMap);
+//			MapCache explicitlyRequestedCache = update.added.iterator().next();
+//			for (CacheOverlay cacheOverlay : explicitlyRequestedCache.getCacheOverlays()) {
+//				CacheOverlayOnMap onMap = CacheManager.getInstance().createOverlayOnMap(map, cacheOverlay);
+//				overlaysOnMap.put(cacheOverlay, onMap);
+//				onMap.zoomMapToBoundingBox();
 //			}
 //		}
-
-		// Load overlay order from preferences
-
-		// Track enabled cache overlays
-		Map<String, CacheOverlay> enabledCacheOverlays = new HashMap<>();
-
-		// Track enabled GeoPackages
-		Set<String> enabledGeoPackages = new HashSet<>();
-
-		// Reset the bounding box for newly added caches
-		addedCacheBoundingBox = null;
-
-		// Remove any overlays that are on the map but no longer selected in
-		// preferences, update the tile overlays to the enabled tile overlays
-//		for (CacheOverlay cacheOverlay : this.cacheOverlays.values()) {
-//			cacheOverlay.removeFromMap();
+//		else {
+//			for (MapCache added : update.added) {
+//				for (CacheOverlay cacheOverlay : added.getCacheOverlays()) {
+//					CacheOverlayOnMap onMap = CacheManager.getInstance().createOverlayOnMap(map, cacheOverlay);
+//					overlaysOnMap.put(cacheOverlay, onMap);
+//				}
+//			}
 //		}
-		this.cacheOverlays = enabledCacheOverlays;
-
-		// Close GeoPackages no longer enabled
-		geoPackageCache.closeRetain(enabledGeoPackages);
-
-		// If a new cache was added, zoom to the bounding box area
-		if(addedCacheBoundingBox != null){
-
-			final LatLngBounds.Builder boundsBuilder = new LatLngBounds.Builder();
-			boundsBuilder.include(new LatLng(addedCacheBoundingBox.getMinLatitude(), addedCacheBoundingBox
-					.getMinLongitude()));
-			boundsBuilder.include(new LatLng(addedCacheBoundingBox.getMinLatitude(), addedCacheBoundingBox
-					.getMaxLongitude()));
-			boundsBuilder.include(new LatLng(addedCacheBoundingBox.getMaxLatitude(), addedCacheBoundingBox
-					.getMinLongitude()));
-			boundsBuilder.include(new LatLng(addedCacheBoundingBox.getMaxLatitude(), addedCacheBoundingBox
-					.getMaxLongitude()));
-
-			try {
-				map.animateCamera(CameraUpdateFactory.newLatLngBounds(
-						boundsBuilder.build(), 0));
-			} catch (Exception e) {
-				Log.e(LOG_NAME, "Unable to move camera to newly added cache location", e);
-			}
-		}
+//
+//		// Load overlay order from preferences
+//
+//		// Track enabled cache overlays
+//		Map<String, CacheOverlay> enabledCacheOverlays = new HashMap<>();
+//
+//		// Track enabled GeoPackages
+//		Set<String> enabledGeoPackages = new HashSet<>();
+//
+//		// Reset the bounding box for newly added caches
+//		addedCacheBoundingBox = null;
+//
+//		// Close GeoPackages no longer enabled
+//		geoPackageCache.closeRetain(enabledGeoPackages);
+//
+//		// If a new cache was added, zoom to the bounding box area
+//		if (addedCacheBoundingBox != null) {
+//
+//			final LatLngBounds.Builder boundsBuilder = new LatLngBounds.Builder();
+//			boundsBuilder.include(new LatLng(addedCacheBoundingBox.getMinLatitude(), addedCacheBoundingBox
+//					.getMinLongitude()));
+//			boundsBuilder.include(new LatLng(addedCacheBoundingBox.getMinLatitude(), addedCacheBoundingBox
+//					.getMaxLongitude()));
+//			boundsBuilder.include(new LatLng(addedCacheBoundingBox.getMaxLatitude(), addedCacheBoundingBox
+//					.getMinLongitude()));
+//			boundsBuilder.include(new LatLng(addedCacheBoundingBox.getMaxLatitude(), addedCacheBoundingBox
+//					.getMaxLongitude()));
+//
+//			try {
+//				map.animateCamera(CameraUpdateFactory.newLatLngBounds(
+//						boundsBuilder.build(), 0));
+//			}
+//			catch (Exception e) {
+//				Log.e(LOG_NAME, "Unable to move camera to newly added cache location", e);
+//			}
+//		}
 	}
 
 	private void updateStaticFeatureLayers() {

@@ -1,23 +1,27 @@
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-  xmlns:tools="http://schemas.android.com/tools"
-  tools:context="mil.nga.giat.mage.map.MapOverlaysFragment"
-  android:layout_width="match_parent"
-  android:layout_height="match_parent"
-  android:orientation="vertical">
+<android.support.constraint.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:context="mil.nga.giat.mage.map.MapOverlaysFragment"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
 
-  <TextView
-    android:layout_width="wrap_content"
-    android:layout_height="wrap_content" android:text="@string/app_name" android:textSize="76sp"/>
-  <!--<android.support.v4.view.ViewPager-->
-    <!--android:id="@+id/map_overlay_tab_pager"-->
-    <!--android:layout_width="match_parent"-->
-    <!--android:layout_height="match_parent">-->
+  <android.support.v4.view.ViewPager
+      android:id="@+id/map_overlay_tab_pager"
+      android:layout_width="0dp"
+      android:layout_height="0dp"
+      app:layout_constraintLeft_toLeftOf="parent"
+      app:layout_constraintTop_toTopOf="parent"
+      app:layout_constraintRight_toRightOf="parent"
+      app:layout_constraintBottom_toBottomOf="parent"
+      >
 
-    <!--<android.support.design.widget.TabLayout-->
-      <!--android:id="@+id/map_overlay_tabs"-->
-      <!--android:layout_width="match_parent"-->
-      <!--android:layout_height="wrap_content"/>-->
+    <android.support.design.widget.TabLayout
+        android:id="@+id/map_overlay_tabs"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        />
 
-  <!--</android.support.v4.view.ViewPager>-->
+  </android.support.v4.view.ViewPager>
 
-</LinearLayout>
+</android.support.constraint.ConstraintLayout>

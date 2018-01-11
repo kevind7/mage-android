@@ -8,18 +8,22 @@ import android.support.v7.widget.SwitchCompat;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.CompoundButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.woxthebox.draglistview.DragItemAdapter;
 import com.woxthebox.draglistview.DragListView;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import mil.nga.giat.mage.R;
-import mil.nga.giat.mage.map.cache.CacheOverlay;
+import mil.nga.giat.mage.map.cache.CacheOverlayOnMap;
 
 public class MapOverlaysListFragment extends Fragment {
 
-    public static class OverlayItemAdapter extends DragItemAdapter<CacheOverlay, OverlayItemViewHolder> {
+    public static class OverlayItemAdapter extends DragItemAdapter<CacheOverlayOnMap, OverlayItemViewHolder> {
 
         @Override
         public long getUniqueItemId(int i) {
@@ -35,14 +39,19 @@ public class MapOverlaysListFragment extends Fragment {
         @Override
         public void onBindViewHolder(OverlayItemViewHolder holder, int position) {
             super.onBindViewHolder(holder, position);
-            // TODO: set display values for the cache
-//            holder.icon.setImageResource();
-//            holder.name.setText();
-//            holder.enabled.setChecked();
+
+            CacheOverlayOnMap overlay = getItemList().get(position);
+            Integer iconResourceId = overlay.getCacheOverlay().getIconImageResourceId();
+            if (iconResourceId != null) {
+                // TODO: default image
+                holder.icon.setImageResource(overlay.getCacheOverlay().getIconImageResourceId());
+            }
+            holder.name.setText(overlay.getCacheOverlay().getOverlayName());
+            holder.enabled.setChecked(overlay.isOnMap() && overlay.isVisible());
         }
     }
 
-    private static class OverlayItemViewHolder extends DragItemAdapter.ViewHolder {
+    private static class OverlayItemViewHolder extends DragItemAdapter.ViewHolder implements CompoundButton.OnCheckedChangeListener {
 
         private final ImageView icon;
         private final TextView name;
@@ -53,11 +62,18 @@ public class MapOverlaysListFragment extends Fragment {
             icon = (ImageView) itemView.findViewById(R.id.overlay_item_image);
             name = (TextView) itemView.findViewById(R.id.overlay_item_name);
             enabled = (SwitchCompat) itemView.findViewById(R.id.overlay_item_enabled);
+            enabled.setOnCheckedChangeListener(this);
+        }
+
+        @Override
+        public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+
         }
     }
 
 
     private DragListView overlaysListView;
+    private List<CacheOverlayOnMap> overlays;
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -71,6 +87,13 @@ public class MapOverlaysListFragment extends Fragment {
         overlaysListView = (DragListView) root.findViewById(R.id.tile_overlays_list);
         overlaysListView.getRecyclerView().setVerticalScrollBarEnabled(true);
         overlaysListView.setLayoutManager(new LinearLayoutManager(getContext()));
+        overlaysListView.setAdapter(new OverlayItemAdapter(), true);
         return root;
+    }
+
+    public void setOverlays(List<CacheOverlayOnMap> x) {
+        List<CacheOverlayOnMap> writableList = new ArrayList<>(x);
+        OverlayItemAdapter adapter = (OverlayItemAdapter) overlaysListView.getAdapter();
+        adapter.setItemList(writableList);
     }
 }

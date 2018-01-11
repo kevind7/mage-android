@@ -282,7 +282,7 @@ public class GeoPackageCacheProvider implements CacheProvider {
 
         @Override
         @NonNull
-        public CacheOverlay getCache() {
+        public CacheOverlay getCacheOverlay() {
             return cache;
         }
 
@@ -416,7 +416,7 @@ public class GeoPackageCacheProvider implements CacheProvider {
 
         @NonNull
         @Override
-        public CacheOverlay getCache() {
+        public CacheOverlay getCacheOverlay() {
             return cache;
         }
 

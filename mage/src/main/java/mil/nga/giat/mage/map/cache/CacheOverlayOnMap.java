@@ -15,7 +15,7 @@ public interface CacheOverlayOnMap {
     GoogleMap getMap();
 
     @NonNull
-    CacheOverlay getCache();
+    CacheOverlay getCacheOverlay();
 
     @NonNull
     CacheOverlayOnMap addToMapWithVisibility(boolean visible);

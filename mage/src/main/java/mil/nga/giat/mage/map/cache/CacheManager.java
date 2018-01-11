@@ -303,15 +303,15 @@ public class CacheManager {
                 }
                 providerCaches.add(cache);
             }
-            Set<MapCache> overlays = new HashSet<>();
+            Set<MapCache> caches = new HashSet<>();
             for (CacheProvider provider : providers) {
                 Set<MapCache> providerCaches = cachesByProvider.get(provider.getClass());
                 if (providerCaches == null) {
                     providerCaches = Collections.emptySet();
                 }
-                overlays.addAll(provider.refreshCaches(providerCaches));
+                caches.addAll(provider.refreshCaches(providerCaches));
             }
-            return overlays;
+            return caches;
 
             // TODO: move this to CacheOverlayOnMapManager, or some such map-specific linkage
             // but for now i think just save the set of cache files to preferences to re-create

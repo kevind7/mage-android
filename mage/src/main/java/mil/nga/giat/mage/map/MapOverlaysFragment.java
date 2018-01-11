@@ -4,20 +4,17 @@ import android.content.Context;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
+import android.support.design.widget.TabLayout;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentPagerAdapter;
-import android.support.v4.app.ListFragment;
+import android.support.v4.view.ViewPager;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ArrayAdapter;
 import android.widget.TextView;
 
-import java.util.List;
-
 import mil.nga.giat.mage.R;
-import mil.nga.giat.mage.map.cache.CacheOverlay;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -34,14 +31,17 @@ public class MapOverlaysFragment extends Fragment {
     private static final String ARG_PARAM2 = "param2";
 
     // TODO: Rename and change types of parameters
+    private String tilesTitle;
+    private String featuresTitle;
     private String mParam1;
     private String mParam2;
+    private Fragment tilesFragment;
+    private Fragment featuresFragment;
     private OverlayTabsPagerAdapter pagerAdapter;
 
     private OnFragmentInteractionListener mListener;
 
     public MapOverlaysFragment() {
-        // Required empty public constructor
     }
 
     // TODO: Rename and change types and number of parameters
@@ -61,22 +61,45 @@ public class MapOverlaysFragment extends Fragment {
 //            mParam1 = getArguments().getString(ARG_PARAM1);
 //            mParam2 = getArguments().getString(ARG_PARAM2);
 //        }
-        pagerAdapter = new OverlayTabsPagerAdapter(getChildFragmentManager(), getContext());
+        tilesTitle = getResources().getString(R.string.overlay_tab_tiles);
+        featuresTitle = getResources().getString(R.string.overlay_tab_features);
+        tilesFragment = new TestPageFragment();
+        Bundle tilesArgs = new Bundle();
+        tilesArgs.putCharSequence("text", "TILES");
+        tilesFragment.setArguments(tilesArgs);
+        featuresFragment = new TestPageFragment();
+        Bundle featuresArgs = new Bundle();
+        featuresArgs.putCharSequence("text", "FEATURES");
+        featuresFragment.setArguments(featuresArgs);
     }
 
     @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                             Bundle savedInstanceState) {
+    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         // Inflate the layout for this fragment
-        return inflater.inflate(R.layout.fragment_map_overlays, container, false);
+        View view = inflater.inflate(R.layout.fragment_map_overlays, container, false);
+        ViewPager tabPager = (ViewPager) view.findViewById(R.id.map_overlay_tab_pager);
+        if (tabPager != null) {
+            tabPager.setAdapter(new OverlayTabsPagerAdapter(getChildFragmentManager()));
+            TabLayout tabs = (TabLayout) view.findViewById(R.id.map_overlay_tabs);
+            tabs.setupWithViewPager(tabPager);
+        }
+        else {
+            getChildFragmentManager().beginTransaction()
+                .replace(R.id.tiles_container, tilesFragment)
+                .replace(R.id.features_container, featuresFragment)
+                .commit();
+        }
+        return view;
     }
 
-    // TODO: Rename method, update argument and hook method into UI event
-    public void onButtonPressed(Uri uri) {
-        if (mListener != null) {
-            mListener.onFragmentInteraction(uri);
-        }
-    }
+//    @Override
+//    public void onDestroyView() {
+//        super.onDestroyView();
+//        ViewPager tabPager = (ViewPager) getView().findViewById(R.id.map_overlay_tab_pager);
+//        if (tabPager != null) {
+//            tabPager.setAdapter(new OverlayTabsPagerAdapter(getChildFragmentManager()));
+//        }
+//    }
 
     @Override
     public void onAttach(Context context) {
@@ -111,12 +134,6 @@ public class MapOverlaysFragment extends Fragment {
         void onFragmentInteraction(Uri uri);
     }
 
-    public static class OverlayListFragment extends ListFragment {
-
-
-
-    }
-
     public static class TestPageFragment extends Fragment {
 
         private CharSequence text;
@@ -138,36 +155,10 @@ public class MapOverlaysFragment extends Fragment {
         }
     }
 
-    static class OverlayTabsPagerAdapter extends FragmentPagerAdapter {
+    class OverlayTabsPagerAdapter extends FragmentPagerAdapter {
 
-        private final String tilesTitle;
-        private final String featuresTitle;
-        private final Context context;
-
-        OverlayTabsPagerAdapter(FragmentManager fragmentManager, Context context) {
+        OverlayTabsPagerAdapter(FragmentManager fragmentManager) {
             super(fragmentManager);
-            this.context = context;
-            this.tilesTitle = context.getString(R.string.overlay_tab_tiles);
-            this.featuresTitle = context.getString(R.string.overlay_tab_features);
-        }
-
-        @Override
-        public Fragment getItem(final int position) {
-//            ListFragment list = new ListFragment();
-//            list.setListAdapter(new OverlayListAdapter(context, ));
-//            switch (position) {
-//                case 0:
-//                    // tiles
-//                    return new ListFragment();
-//                case 1:
-//                    // features
-//                    return new ListFragment();
-//            }
-            Fragment item = new TestPageFragment();
-            Bundle args = new Bundle();
-            args.putCharSequence("text", String.valueOf(position));
-            item.setArguments(args);
-            return item;
         }
 
         @Override
@@ -185,22 +176,22 @@ public class MapOverlaysFragment extends Fragment {
             }
             return null;
         }
-    }
-
-    static class OverlayListAdapter extends ArrayAdapter<CacheOverlay> {
-
-        OverlayListAdapter(Context context, int resource, List<CacheOverlay> objects) {
-            super(context, resource, objects);
-        }
 
         @Override
-        public View getView(int position, View convertView, ViewGroup parent) {
-            View view = convertView;
-            if (view == null) {
-//              view = LayoutInflater.from(getContext()).inflate()
+        public Fragment getItem(final int position) {
+            switch (position) {
+                case 0:
+                    // tiles
+                    return tilesFragment;
+                case 1:
+                    // features
+                    return featuresFragment;
             }
-            return view;
+//            Fragment item = new TestPageFragment();
+//            Bundle args = new Bundle();
+//            args.putCharSequence("text", String.valueOf(position));
+//            item.setArguments(args);
+            return null;
         }
     }
-
 }
