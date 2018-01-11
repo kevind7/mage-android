@@ -6,7 +6,7 @@
     android:layout_height="match_parent"
     >
 
-    <mil.nga.giat.mage.map.GoogleMapWrapper
+    <FrameLayout
         android:id="@+id/map_wrapper"
         android:layout_width="0dp"
         android:layout_height="0dp"

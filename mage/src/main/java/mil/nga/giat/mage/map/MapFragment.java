@@ -18,7 +18,6 @@ import android.support.annotation.Nullable;
 import android.support.constraint.ConstraintLayout;
 import android.support.constraint.ConstraintSet;
 import android.support.design.widget.FloatingActionButton;
-import android.support.transition.Transition;
 import android.support.transition.TransitionManager;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
@@ -82,7 +81,6 @@ import mil.nga.giat.mage.R;
 import mil.nga.giat.mage.filter.DateTimeFilter;
 import mil.nga.giat.mage.filter.Filter;
 import mil.nga.giat.mage.filter.FilterActivity;
-import mil.nga.giat.mage.map.GoogleMapWrapper.OnMapPanListener;
 import mil.nga.giat.mage.map.cache.CacheManager;
 import mil.nga.giat.mage.map.cache.CacheManager.CacheOverlaysUpdateListener;
 import mil.nga.giat.mage.map.cache.CacheOverlay;
@@ -113,7 +111,8 @@ import mil.nga.giat.mage.sdk.location.LocationService;
 
 public class MapFragment extends Fragment
 	implements OnMapReadyCallback, OnMapClickListener, OnMapLongClickListener, OnMarkerClickListener,
-	OnInfoWindowClickListener, OnMapPanListener, OnMyLocationButtonClickListener, OnClickListener,
+	GoogleMap.OnCameraMoveStartedListener, GoogleMap.OnCameraIdleListener,
+	OnInfoWindowClickListener, OnMyLocationButtonClickListener, OnClickListener,
 	LocationSource, LocationListener, CacheOverlaysUpdateListener, SearchView.OnQueryTextListener,
 	IObservationEventListener, ILocationEventListener, IStaticFeatureEventListener {
 
@@ -139,6 +138,7 @@ public class MapFragment extends Fragment
 
 	private MAGE mage;
 	private ViewGroup container;
+	private ViewGroup mapWrapper;
 	private ViewGroup mapOverlaysContainer;
 	private MapView mapView;
 	private GoogleMap map;
@@ -146,7 +146,6 @@ public class MapFragment extends Fragment
 	private SearchView searchView;
 	private Location location;
 	private boolean followMe = false;
-	private GoogleMapWrapper mapWrapper;
 	private User currentUser = null;
 	private OnLocationChangedListener locationChangedListener;
 
@@ -300,6 +299,8 @@ public class MapFragment extends Fragment
 		map.setOnMapLongClickListener(null);
 		map.setOnMyLocationButtonClickListener(null);
 		map.setOnInfoWindowClickListener(null);
+		map.setOnCameraMoveStartedListener(null);
+		map.setOnCameraIdleListener(null);
 		map.clear();
 
 		// TODO: move clean up in GeoPackageCacheProvider
@@ -311,6 +312,7 @@ public class MapFragment extends Fragment
 		staticGeometryCollection = null;
 		currentUser = null;
 		map = null;
+		mapView.onDestroy();
 	}
 
 	@Override
@@ -323,7 +325,6 @@ public class MapFragment extends Fragment
 	@Override
 	public void onDestroy() {
 		super.onDestroy();
-		mapView.onDestroy();
 	}
 
 	private void scheduleMarkerRefresh(RefreshMarkersRunnable task) {
@@ -333,7 +334,6 @@ public class MapFragment extends Fragment
 	private void cleanUpForLayoutChange() {
 		container.removeAllViews();
 		mapWrapper.removeAllViews();
-		mapWrapper.setOnMapPanListener(null);
 		zoomToLocationButton.setOnClickListener(null);
 		searchView.setOnQueryTextListener(null);
 		searchButton.setOnClickListener(null);
@@ -371,7 +371,7 @@ public class MapFragment extends Fragment
 		searchView.setIconified(false);
 		searchView.clearFocus();
 
-		mapWrapper = (GoogleMapWrapper) constraintLayout.findViewById(R.id.map_wrapper);
+		mapWrapper = (FrameLayout) constraintLayout.findViewById(R.id.map_wrapper);
 		mapWrapper.addView(mapView);
 
 		// TODO: is saved instance state associated with the fragment alone, or with the parent activity?
@@ -414,6 +414,8 @@ public class MapFragment extends Fragment
 			map.setOnMapLongClickListener(this);
 			map.setOnMyLocationButtonClickListener(this);
 			map.setOnInfoWindowClickListener(this);
+			map.setOnCameraMoveStartedListener(this);
+			map.setOnCameraIdleListener(this);
 			observations = new ObservationMarkerCollection(getActivity(), map);
 			historicLocations = new MyHistoricalLocationMarkerCollection(getActivity(), map);
 			locations = new LocationMarkerCollection(getActivity(), map);
@@ -512,7 +514,20 @@ public class MapFragment extends Fragment
 		reconcileOverlaysPanelState();
     }
 
+    static class MapPadding {
+		final GoogleMap map;
+		int paddingLeft;
+		int paddingBottom;
+
+		MapPadding(GoogleMap map) {
+			this.map = map;
+		}
+	}
+
 	private void reconcileOverlaysPanelState() {
+//		ObjectAnimator animator = new ObjectAnimator();
+//		animator.setPropertyName("padding");
+//		animator.setTarget(new MapPadding(map));
 		FragmentManager fragmentManager = getChildFragmentManager();
 		TransitionManager.beginDelayedTransition(constraintLayout);
 		if (overlaysExpanded) {
@@ -785,6 +800,7 @@ public class MapFragment extends Fragment
 		switch (target) {
 			case R.id.zoom_button:
 				onZoom();
+				return;
 			case R.id.map_search_button:
 				onSearch();
 				return;
@@ -807,18 +823,28 @@ public class MapFragment extends Fragment
 
 				@Override
 				public void onCancel() {
-					mapWrapper.setOnMapPanListener(MapFragment.this);
 					followMe = true;
 				}
 
 				@Override
 				public void onFinish() {
-					mapWrapper.setOnMapPanListener(MapFragment.this);
 					followMe = true;
 				}
 			});
 		}
 		return true;
+	}
+
+	@Override
+	public void onCameraMoveStarted(int reason) {
+		if (reason == REASON_GESTURE) {
+			followMe = false;
+		}
+	}
+
+	@Override
+	public void onCameraIdle() {
+		// TODO: anything for followMe?
 	}
 
 	@Override
@@ -835,12 +861,6 @@ public class MapFragment extends Fragment
 	public void deactivate() {
 		Log.i(LOG_NAME, "map location, deactivate");
 		locationChangedListener = null;
-	}
-
-	@Override
-	public void onMapPan() {
-		mapWrapper.setOnMapPanListener(null);
-		followMe = false;
 	}
 
 	@Override
