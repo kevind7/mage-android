@@ -514,20 +514,7 @@ public class MapFragment extends Fragment
 		reconcileOverlaysPanelState();
     }
 
-    static class MapPadding {
-		final GoogleMap map;
-		int paddingLeft;
-		int paddingBottom;
-
-		MapPadding(GoogleMap map) {
-			this.map = map;
-		}
-	}
-
 	private void reconcileOverlaysPanelState() {
-//		ObjectAnimator animator = new ObjectAnimator();
-//		animator.setPropertyName("padding");
-//		animator.setTarget(new MapPadding(map));
 		FragmentManager fragmentManager = getChildFragmentManager();
 		TransitionManager.beginDelayedTransition(constraintLayout);
 		if (overlaysExpanded) {

@@ -95,7 +95,6 @@
         android:id="@+id/map_overlays_container"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:background="@color/md_red_900"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toLeftOf="@id/map_wrapper"
