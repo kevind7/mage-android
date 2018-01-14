@@ -515,8 +515,10 @@ public class MapFragment extends Fragment
     }
 
 	private void reconcileOverlaysPanelState() {
+		// TODO: animate layout change with ObjectAnimator on map padding
+		// instead of changing the map view height
 		FragmentManager fragmentManager = getChildFragmentManager();
-		TransitionManager.beginDelayedTransition(constraintLayout);
+//		TransitionManager.beginDelayedTransition(constraintLayout);
 		if (overlaysExpanded) {
 			layoutOverlaysExpanded.applyTo(constraintLayout);
 			Fragment overlays = Fragment.instantiate(getActivity(), MapOverlaysFragment.class.getName());

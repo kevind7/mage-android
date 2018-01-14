@@ -6,31 +6,12 @@
     android:layout_height="match_parent"
     >
 
-    <FrameLayout
-        android:id="@+id/map_wrapper"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:background="@color/cast_expanded_controller_ad_label_background_color"
-        app:layout_constraintLeft_toRightOf="@+id/map_overlays_container"
-        app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintHorizontal_weight="0.6"
-        app:layout_constraintVertical_bias="0.0"
+    <android.support.constraint.Guideline
+        android:id="@+id/map_overlays_anchor"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        app:layout_constraintGuide_percent="0.4"
         />
-
-    <FrameLayout
-        android:id="@+id/map_overlays_container"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:layout_margin="0dp"
-        android:background="@color/md_red_900"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintRight_toLeftOf="@+id/map_wrapper"
-        app:layout_constraintHorizontal_weight="0.4"
-        >
-    </FrameLayout>
 
 </android.support.constraint.ConstraintLayout>
