@@ -1,5 +1,7 @@
 package mil.nga.giat.mage.map.cache;
 
+import com.google.android.gms.maps.model.LatLngBounds;
+
 import java.io.File;
 import java.util.Set;
 
@@ -43,6 +45,10 @@ public class MapCache {
 
     public void updateRefreshTimestamp() {
         this.refreshTimestamp = System.currentTimeMillis();
+    }
+
+    public LatLngBounds getBounds() {
+        return null;
     }
 
     public boolean equals(Object obj) {

@@ -19,69 +19,54 @@ import mil.nga.giat.mage.map.FileSystemTileProvider;
 
 public class XYZDirectoryCacheProvider implements CacheProvider {
 
-    static class OnMap implements CacheOverlayOnMap {
+    static class OnMap extends OverlayOnMapManager.OverlayOnMap {
 
         private final GoogleMap map;
         private final XYZDirectoryCacheOverlay cache;
         private TileOverlay overlay;
 
-        OnMap(GoogleMap map, XYZDirectoryCacheOverlay cache) {
-            this.map = map;
+        OnMap(OverlayOnMapManager manager, XYZDirectoryCacheOverlay cache) {
+            manager.super();
+            this.map = manager.getMap();
             this.cache = cache;
         }
 
-        @Override
-        public GoogleMap getMap() {
-            return map;
-        }
-
         @NonNull
         @Override
-        public CacheOverlay getCacheOverlay() {
-            return cache;
-        }
-
-        @NonNull
-        @Override
-        public CacheOverlayOnMap addToMapWithVisibility(boolean visibility) {
+        public void addToMapWithVisibility(boolean visibility) {
             TileProvider tileProvider = new FileSystemTileProvider(256, 256, cache.getDirectory().getAbsolutePath());
             TileOverlayOptions overlayOptions = new TileOverlayOptions().visible(visibility);
             overlayOptions.tileProvider(tileProvider);
             overlay = map.addTileOverlay(overlayOptions);
-            return this;
         }
 
         @NonNull
         @Override
-        public CacheOverlayOnMap removeFromMap() {
+        public void removeFromMap() {
             overlay.remove();
             overlay = null;
-            return this;
         }
 
         @NonNull
         @Override
-        public CacheOverlayOnMap zoomMapToBoundingBox() {
+        public void zoomMapToBoundingBox() {
             // TODO
-            return this;
         }
 
         @NonNull
         @Override
-        public CacheOverlayOnMap show() {
+        public void show() {
             if (overlay != null) {
                 overlay.setVisible(true);
             }
-            return this;
         }
 
         @NonNull
         @Override
-        public CacheOverlayOnMap hide() {
+        public void hide() {
             if (overlay != null) {
                 overlay.setVisible(false);
             }
-            return this;
         }
 
         @Nullable
@@ -123,9 +108,8 @@ public class XYZDirectoryCacheProvider implements CacheProvider {
     }
 
     @Override
-    public CacheOverlayOnMap createOverlayOnMapFromCache(CacheOverlay cache, GoogleMap map) {
-        // TODO
-        return null;
+    public OverlayOnMapManager.OverlayOnMap createOverlayOnMapFromCache(CacheOverlay cache, OverlayOnMapManager mapManager) {
+        return new OnMap(mapManager, (XYZDirectoryCacheOverlay) cache);
     }
 
     /**

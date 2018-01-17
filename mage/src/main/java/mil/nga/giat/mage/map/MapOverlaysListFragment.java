@@ -19,11 +19,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 import mil.nga.giat.mage.R;
-import mil.nga.giat.mage.map.cache.CacheOverlayOnMap;
+import mil.nga.giat.mage.map.cache.CacheOverlay;
+import mil.nga.giat.mage.map.cache.OverlayOnMapManager;
 
 public class MapOverlaysListFragment extends Fragment {
 
-    public static class OverlayItemAdapter extends DragItemAdapter<CacheOverlayOnMap, OverlayItemViewHolder> {
+    public class OverlayItemAdapter extends DragItemAdapter<CacheOverlay, OverlayItemViewHolder> {
 
         @Override
         public long getUniqueItemId(int i) {
@@ -39,41 +40,52 @@ public class MapOverlaysListFragment extends Fragment {
         @Override
         public void onBindViewHolder(OverlayItemViewHolder holder, int position) {
             super.onBindViewHolder(holder, position);
-
-            CacheOverlayOnMap overlay = getItemList().get(position);
-            Integer iconResourceId = overlay.getCacheOverlay().getIconImageResourceId();
-            if (iconResourceId != null) {
-                // TODO: default image
-                holder.icon.setImageResource(overlay.getCacheOverlay().getIconImageResourceId());
-            }
-            holder.name.setText(overlay.getCacheOverlay().getOverlayName());
-            holder.enabled.setChecked(overlay.isOnMap() && overlay.isVisible());
+            CacheOverlay overlay = getItemList().get(position);
+            holder.setOverlay(overlay);
         }
     }
 
-    private static class OverlayItemViewHolder extends DragItemAdapter.ViewHolder implements CompoundButton.OnCheckedChangeListener {
+    private class OverlayItemViewHolder extends DragItemAdapter.ViewHolder implements CompoundButton.OnCheckedChangeListener {
 
         private final ImageView icon;
         private final TextView name;
         private final SwitchCompat enabled;
+        private CacheOverlay overlay;
 
         public OverlayItemViewHolder(View itemView) {
             super(itemView, R.id.overlay_item_name, false);
             icon = (ImageView) itemView.findViewById(R.id.overlay_item_image);
             name = (TextView) itemView.findViewById(R.id.overlay_item_name);
             enabled = (SwitchCompat) itemView.findViewById(R.id.overlay_item_enabled);
+        }
+
+        private void setOverlay(CacheOverlay overlay) {
+            Integer iconResourceId = overlay.getIconImageResourceId();
+            if (iconResourceId != null) {
+                icon.setImageResource(iconResourceId);
+            }
+            name.setText(overlay.getOverlayName());
+            enabled.setOnCheckedChangeListener(null);
+            // TODO: set inivisible to suppress animation so switches don't animate as list scrolls; is there a better way?
+            enabled.setVisibility(View.INVISIBLE);
+            enabled.setChecked(overlayManager.isOverlayVisible(overlay));
             enabled.setOnCheckedChangeListener(this);
+            enabled.setVisibility(View.VISIBLE);
+//            enabled.jumpDrawablesToCurrentState();
         }
 
         @Override
         public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-
+            if (isChecked){
+                overlayManager.showOverlay(overlay);
+            }
         }
     }
 
 
+    private OverlayOnMapManager overlayManager;
     private DragListView overlaysListView;
-    private List<CacheOverlayOnMap> overlays;
+    private List<CacheOverlay> overlays;
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -91,8 +103,8 @@ public class MapOverlaysListFragment extends Fragment {
         return root;
     }
 
-    public void setOverlays(List<CacheOverlayOnMap> x) {
-        List<CacheOverlayOnMap> writableList = new ArrayList<>(x);
+    public void setOverlays(List<CacheOverlay> x) {
+        List<CacheOverlay> writableList = new ArrayList<>(x);
         OverlayItemAdapter adapter = (OverlayItemAdapter) overlaysListView.getAdapter();
         adapter.setItemList(writableList);
     }

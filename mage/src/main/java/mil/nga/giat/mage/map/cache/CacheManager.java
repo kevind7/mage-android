@@ -4,6 +4,8 @@ import android.app.Application;
 import android.os.AsyncTask;
 import android.support.annotation.MainThread;
 
+import com.google.android.gms.maps.GoogleMap;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -121,10 +123,6 @@ public class CacheManager {
         providers.addAll(config.providers);
     }
 
-    public List<CacheProvider> getProviders() {
-        return this.providers;
-    }
-
     public void tryImportCacheFile(File cacheFile) {
         new ImportCacheFileTask().executeOnExecutor(executor, cacheFile);
     }
@@ -158,6 +156,10 @@ public class CacheManager {
         importCacheFilesForRefreshTask = new ImportCacheFileTask();
         refreshTask = new RefreshAvailableCachesTask();
         findNewCacheFilesTask.executeOnExecutor(executor);
+    }
+
+    public OverlayOnMapManager createMapManager(GoogleMap map) {
+        return new OverlayOnMapManager(this, providers, map);
     }
 
     private void findNewCacheFilesFinished(FindNewCacheFilesInProvidedLocationsTask task) {
@@ -313,7 +315,7 @@ public class CacheManager {
             }
             return caches;
 
-            // TODO: move this to CacheOverlayOnMapManager, or some such map-specific linkage
+            // TODO: move this to OverlayOnMapManager, or some such map-specific linkage
             // but for now i think just save the set of cache files to preferences to re-create
             // after next launch.  at some point switch to urls instead of file paths to maybe
             // support more than local files for cached overlays, which at that point i suppose

@@ -1,7 +1,5 @@
 package mil.nga.giat.mage.map.cache;
 
-import com.google.android.gms.maps.GoogleMap;
-
 import java.io.File;
 import java.util.Set;
 
@@ -45,5 +43,5 @@ public interface CacheProvider {
     Set<MapCache> refreshCaches(Set<MapCache> existingCaches);
 
 
-    CacheOverlayOnMap createOverlayOnMapFromCache(CacheOverlay cache, GoogleMap map);
+    OverlayOnMapManager.OverlayOnMap createOverlayOnMapFromCache(CacheOverlay cache, OverlayOnMapManager map);
 }

@@ -257,7 +257,7 @@ public class GeoPackageCacheProvider implements CacheProvider {
         return null;
     }
 
-    class TileTableOnMap implements CacheOverlayOnMap {
+    class TileTableOnMap extends OverlayOnMapManager.OverlayOnMap {
 
         private final GoogleMap map;
         private final GeoPackageTileTableCacheOverlay cache;
@@ -269,65 +269,50 @@ public class GeoPackageCacheProvider implements CacheProvider {
         private TileOverlay tileOverlay;
 
 
-        private TileTableOnMap(GoogleMap map, GeoPackageTileTableCacheOverlay cache, TileOverlayOptions overlayOptions) {
-            this.map = map;
+        private TileTableOnMap(OverlayOnMapManager manager, GeoPackageTileTableCacheOverlay cache, TileOverlayOptions overlayOptions) {
+            manager.super();
+            this.map = manager.getMap();
             this.cache = cache;
             this.options = overlayOptions;
         }
 
         @Override
-        public GoogleMap getMap() {
-            return map;
-        }
-
-        @Override
         @NonNull
-        public CacheOverlay getCacheOverlay() {
-            return cache;
-        }
-
-        @Override
-        @NonNull
-        public CacheOverlayOnMap addToMapWithVisibility(boolean visible) {
+        public void addToMapWithVisibility(boolean visible) {
             if (tileOverlay == null) {
                 options.visible(visible);
                 tileOverlay = map.addTileOverlay(options);
             }
-            return this;
         }
 
         @Override
         @NonNull
-        public CacheOverlayOnMap removeFromMap() {
+        public void removeFromMap() {
             if (tileOverlay != null) {
                 tileOverlay.remove();
                 tileOverlay = null;
             }
-            return this;
         }
 
         @Override
         @NonNull
-        public CacheOverlayOnMap zoomMapToBoundingBox() {
-            return this;
+        public void zoomMapToBoundingBox() {
         }
 
         @NonNull
         @Override
-        public CacheOverlayOnMap show() {
+        public void show() {
             if (tileOverlay != null) {
                 tileOverlay.setVisible(true);
             }
-            return this;
         }
 
         @NonNull
         @Override
-        public CacheOverlayOnMap hide() {
+        public void hide() {
             if (tileOverlay != null) {
                 tileOverlay.setVisible(false);
             }
-            return this;
         }
 
         @Override
@@ -372,10 +357,9 @@ public class GeoPackageCacheProvider implements CacheProvider {
         }
     }
 
-    class FeatureTableOnMap implements CacheOverlayOnMap {
+    class FeatureTableOnMap extends OverlayOnMapManager.OverlayOnMap {
 
         private final GoogleMap map;
-        private final GeoPackageFeatureTableCacheOverlay cache;
         private final List<TileTableOnMap> linkedTiles;
         private final TileOverlayOptions tileOptions;
         private final FeatureOverlayQuery query;
@@ -389,9 +373,9 @@ public class GeoPackageCacheProvider implements CacheProvider {
         private boolean visible;
         private boolean onMap;
 
-        FeatureTableOnMap(GoogleMap map, GeoPackageFeatureTableCacheOverlay cache, List<TileTableOnMap> linkedTiles, TileOverlayOptions tileOptions, FeatureOverlayQuery query) {
-            this.map = map;
-            this.cache = cache;
+        FeatureTableOnMap(OverlayOnMapManager manager, List<TileTableOnMap> linkedTiles, TileOverlayOptions tileOptions, FeatureOverlayQuery query) {
+            manager.super();
+            this.map = manager.getMap();
             this.linkedTiles = linkedTiles;
             this.tileOptions = tileOptions;
             this.query = query;
@@ -399,9 +383,9 @@ public class GeoPackageCacheProvider implements CacheProvider {
             shapesOnMap = new LongSparseArray<>(0);
         }
 
-        FeatureTableOnMap(GoogleMap map, GeoPackageFeatureTableCacheOverlay cache, List<TileTableOnMap> linkedTiles, LongSparseArray<GoogleMapShape> shapeOptions) {
-            this.map = map;
-            this.cache = cache;
+        FeatureTableOnMap(OverlayOnMapManager manager, List<TileTableOnMap> linkedTiles, LongSparseArray<GoogleMapShape> shapeOptions) {
+            manager.super();
+            this.map = manager.getMap();
             this.linkedTiles = linkedTiles;
             this.shapeOptions = shapeOptions;
             this.shapesOnMap = new LongSparseArray<>(shapeOptions.size());
@@ -410,19 +394,8 @@ public class GeoPackageCacheProvider implements CacheProvider {
         }
 
         @Override
-        public GoogleMap getMap() {
-            return map;
-        }
-
         @NonNull
-        @Override
-        public CacheOverlay getCacheOverlay() {
-            return cache;
-        }
-
-        @Override
-        @NonNull
-        public CacheOverlayOnMap addToMapWithVisibility(boolean visible) {
+        public void addToMapWithVisibility(boolean visible) {
             for (TileTableOnMap linkedTileTable : linkedTiles){
                 linkedTileTable.addToMapWithVisibility(visible);
             }
@@ -437,12 +410,11 @@ public class GeoPackageCacheProvider implements CacheProvider {
             }
             this.visible = visible;
             onMap = true;
-            return this;
         }
 
         @Override
         @NonNull
-        public CacheOverlayOnMap removeFromMap() {
+        public void removeFromMap() {
             removeShapes();
             if (overlay != null) {
                 overlay.remove();
@@ -453,21 +425,19 @@ public class GeoPackageCacheProvider implements CacheProvider {
             }
             visible = false;
             onMap = false;
-            return this;
         }
 
         @Override
         @NonNull
-        public CacheOverlayOnMap zoomMapToBoundingBox() {
+        public void zoomMapToBoundingBox() {
             // TODO
-            return this;
         }
 
         @NonNull
         @Override
-        public CacheOverlayOnMap show() {
+        public void show() {
             if (visible) {
-                return this;
+                return;
             }
             for (TileTableOnMap linkedTileTable : linkedTiles) {
                 linkedTileTable.show();
@@ -480,14 +450,13 @@ public class GeoPackageCacheProvider implements CacheProvider {
                 addShapes();
             }
             visible = true;
-            return this;
         }
 
         @NonNull
         @Override
-        public CacheOverlayOnMap hide() {
+        public void hide() {
             if (!visible) {
-                return this;
+                return;
             }
             for (TileTableOnMap linkedTileTable : linkedTiles) {
                 linkedTileTable.hide();
@@ -499,7 +468,6 @@ public class GeoPackageCacheProvider implements CacheProvider {
                 removeShapes();
             }
             visible = false;
-            return this;
         }
 
         @Override
@@ -538,25 +506,26 @@ public class GeoPackageCacheProvider implements CacheProvider {
         }
     }
 
-    public CacheOverlayOnMap createOverlayOnMapFromCache(CacheOverlay cache, GoogleMap map) {
+    @Override
+    public OverlayOnMapManager.OverlayOnMap createOverlayOnMapFromCache(CacheOverlay cache, OverlayOnMapManager mapManager) {
         if (cache instanceof GeoPackageTileTableCacheOverlay) {
-            return createOverlayOnMap((GeoPackageTileTableCacheOverlay) cache, map);
+            return createOverlayOnMap((GeoPackageTileTableCacheOverlay) cache, mapManager);
         }
         else if (cache instanceof GeoPackageFeatureTableCacheOverlay) {
-            return createOverlayOnMap((GeoPackageFeatureTableCacheOverlay) cache, map);
+            return createOverlayOnMap((GeoPackageFeatureTableCacheOverlay) cache, mapManager);
         }
 
         throw new IllegalArgumentException(getClass().getSimpleName() + " does not support " + cache + " of type " + cache.getCacheType() );
     }
 
-    private TileTableOnMap createOverlayOnMap(GeoPackageTileTableCacheOverlay tableCache, GoogleMap map) {
+    private TileTableOnMap createOverlayOnMap(GeoPackageTileTableCacheOverlay tableCache, OverlayOnMapManager mapManager) {
         GeoPackage geoPackage = geoPackageCache.getOrOpen(tableCache.getGeoPackage());
         TileDao tileDao = geoPackage.getTileDao(tableCache.getTableName());
         BoundedOverlay geoPackageTileProvider = GeoPackageOverlayFactory.getBoundedOverlay(tileDao);
         TileOverlayOptions overlayOptions = new TileOverlayOptions()
             .tileProvider(geoPackageTileProvider)
             .zIndex(Z_INDEX_TILE_TABLE);
-        TileTableOnMap onMap = new TileTableOnMap(map, tableCache, overlayOptions);
+        TileTableOnMap onMap = new TileTableOnMap(mapManager, tableCache, overlayOptions);
         // Check for linked feature tables
         FeatureTileTableLinker linker = new FeatureTileTableLinker(geoPackage);
         List<FeatureDao> featureDaos = linker.getFeatureDaosForTileTable(tileDao.getTableName());
@@ -570,10 +539,10 @@ public class GeoPackageCacheProvider implements CacheProvider {
         return onMap;
     }
 
-    private FeatureTableOnMap createOverlayOnMap(GeoPackageFeatureTableCacheOverlay featureTableCache, GoogleMap map) {
+    private FeatureTableOnMap createOverlayOnMap(GeoPackageFeatureTableCacheOverlay featureTableCache, OverlayOnMapManager mapManager) {
         List<TileTableOnMap> linkedTiles = new ArrayList<>(featureTableCache.getLinkedTileTables().size());
         for (GeoPackageTileTableCacheOverlay linkedTileTable : featureTableCache.getLinkedTileTables()) {
-            TileTableOnMap tiles = createOverlayOnMap(linkedTileTable, map);
+            TileTableOnMap tiles = createOverlayOnMap(linkedTileTable, mapManager);
             linkedTiles.add(tiles);
         }
 
@@ -607,8 +576,7 @@ public class GeoPackageCacheProvider implements CacheProvider {
                 .zIndex(Z_INDEX_FEATURE_TABLE)
                 .tileProvider(tileProvider);
             FeatureOverlayQuery featureQuery = new FeatureOverlayQuery(context, tileProvider);
-            FeatureTableOnMap onMap = new FeatureTableOnMap(map, featureTableCache, linkedTiles, overlayOptions, featureQuery);
-            return onMap;
+            return new FeatureTableOnMap(mapManager, linkedTiles, overlayOptions, featureQuery);
         }
         // Not indexed, add the features to the map
         else {
@@ -649,8 +617,7 @@ public class GeoPackageCacheProvider implements CacheProvider {
                     + "- added " + shapes.size() + " of " + numFeaturesInTable, Toast.LENGTH_LONG).show();
             }
 
-            FeatureTableOnMap onMap = new FeatureTableOnMap(map, featureTableCache, linkedTiles, shapes);
-            return onMap;
+            return new FeatureTableOnMap(mapManager, linkedTiles, shapes);
         }
     }
 
