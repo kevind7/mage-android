@@ -3,6 +3,8 @@ package mil.nga.giat.mage.map.cache;
 import com.google.android.gms.maps.MapView;
 import com.google.android.gms.maps.model.LatLng;
 
+import junit.framework.Assert;
+
 import org.junit.Before;
 import org.junit.Test;
 
@@ -100,7 +102,7 @@ public class OverlayOnMapManagerTest implements CacheManager.CreateUpdatePermiss
     }
 
     @Test
-    public void addsOverlayFromUpdate() {
+    public void addsOverlaysFromAddedCaches() {
         OverlayOnMapManager overlayManager = new OverlayOnMapManager(cacheManager, providers, null);
         CacheOverlay overlay1 = new CacheOverlayTest.TestCacheOverlay1("test overlay 1", "test cache", provider1.getClass());
         CacheOverlay overlay2 = new CacheOverlayTest.TestCacheOverlay1("test overlay 2", "test cache", provider1.getClass());
@@ -118,7 +120,7 @@ public class OverlayOnMapManagerTest implements CacheManager.CreateUpdatePermiss
     }
 
     @Test
-    public void removesOverlayFromUpdate() {
+    public void removesOverlaysFromRemovedCaches() {
         OverlayOnMapManager overlayManager = new OverlayOnMapManager(cacheManager, providers, null);
         CacheOverlay overlay1 = new CacheOverlayTest.TestCacheOverlay1("test overlay 1", "test cache", provider1.getClass());
         CacheOverlay overlay2 = new CacheOverlayTest.TestCacheOverlay1("test overlay 2", "test cache", provider1.getClass());
@@ -139,6 +141,11 @@ public class OverlayOnMapManagerTest implements CacheManager.CreateUpdatePermiss
         overlayManager.onCacheOverlaysUpdated(update);
 
         assertTrue(overlayManager.getOverlays().isEmpty());
+    }
+
+    @Test
+    public void removesOverlaysFromUpdatedCaches() {
+        Assert.fail("unimplemented");
     }
 
 }
