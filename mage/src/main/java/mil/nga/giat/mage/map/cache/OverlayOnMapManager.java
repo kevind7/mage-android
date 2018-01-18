@@ -16,6 +16,10 @@ import java.util.Set;
 @MainThread
 public class OverlayOnMapManager implements CacheManager.CacheOverlaysUpdateListener {
 
+    public interface OverlayOnMapListener {
+        void overlaysChanged();
+    }
+
     public abstract class OverlayOnMap {
 
         abstract protected void addToMapWithVisibility(boolean visible);
@@ -34,6 +38,7 @@ public class OverlayOnMapManager implements CacheManager.CacheOverlaysUpdateList
     private final Map<Class<? extends CacheProvider>, CacheProvider> providers = new HashMap<>();
     private final Map<CacheOverlay, OverlayOnMap> overlaysOnMap = new HashMap<>();
     private final List<CacheOverlay> overlayOrder = new ArrayList<>();
+    private final List<OverlayOnMapListener> listeners = new ArrayList<>();
 
     public OverlayOnMapManager(CacheManager cacheManager, List<CacheProvider> providers, GoogleMap map) {
         this.cacheManager = cacheManager;
@@ -41,6 +46,10 @@ public class OverlayOnMapManager implements CacheManager.CacheOverlaysUpdateList
         for (CacheProvider provider : providers) {
             this.providers.put(provider.getClass(), provider);
         }
+        for (MapCache cache : cacheManager.getCaches()) {
+            overlayOrder.addAll(cache.getCacheOverlays());
+        }
+        cacheManager.addUpdateListener(this);
     }
 
     @Override
@@ -76,6 +85,18 @@ public class OverlayOnMapManager implements CacheManager.CacheOverlaysUpdateList
                 addOverlayToMap(cacheOverlay, false);
             }
         }
+
+        for (OverlayOnMapListener listener : listeners) {
+		    listener.overlaysChanged();
+        }
+    }
+
+    public void addOverlayOnMapListener(OverlayOnMapListener x) {
+        listeners.add(x);
+    }
+
+    public void removeOverlayOnMapListener(OverlayOnMapListener x) {
+        listeners.remove(x);
     }
 
     public GoogleMap getMap() {
@@ -118,12 +139,18 @@ public class OverlayOnMapManager implements CacheManager.CacheOverlaysUpdateList
         onMap.zoomMapToBoundingBox();
     }
 
+    public void dispose() {
+        // TODO: remove and dispose all overlays/notify providers
+        cacheManager.removeUpdateListener(this);
+    }
+
     private void addOverlayToMap(CacheOverlay cacheOverlay, boolean visible) {
         OverlayOnMap onMap = overlaysOnMap.get(cacheOverlay);
         if (onMap == null) {
             CacheProvider provider = providers.get(cacheOverlay.getCacheType());
             onMap = provider.createOverlayOnMapFromCache(cacheOverlay, this);
             overlaysOnMap.put(cacheOverlay, onMap);
+            overlayOrder.add(cacheOverlay);
         }
         if (onMap.isOnMap()) {
             onMap.show();

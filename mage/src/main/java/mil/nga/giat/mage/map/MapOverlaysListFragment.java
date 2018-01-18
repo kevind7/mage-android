@@ -16,19 +16,27 @@ import com.woxthebox.draglistview.DragItemAdapter;
 import com.woxthebox.draglistview.DragListView;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import mil.nga.giat.mage.R;
 import mil.nga.giat.mage.map.cache.CacheOverlay;
 import mil.nga.giat.mage.map.cache.OverlayOnMapManager;
 
-public class MapOverlaysListFragment extends Fragment {
+import static android.support.v7.widget.RecyclerView.NO_ID;
 
-    public class OverlayItemAdapter extends DragItemAdapter<CacheOverlay, OverlayItemViewHolder> {
+public class MapOverlaysListFragment extends Fragment implements OverlayOnMapManager.OverlayOnMapListener {
+
+    private class OverlayItemAdapter extends DragItemAdapter<CacheOverlay, OverlayItemViewHolder> {
+
+        private final Map<CacheOverlay, Long> itemIds = new HashMap<>();
 
         @Override
         public long getUniqueItemId(int i) {
-            return 0;
+            CacheOverlay overlay = getItemList().get(i);
+            Long id = itemIds.get(overlay);
+            return id == null ? NO_ID : id;
         }
 
         @Override
@@ -42,6 +50,15 @@ public class MapOverlaysListFragment extends Fragment {
             super.onBindViewHolder(holder, position);
             CacheOverlay overlay = getItemList().get(position);
             holder.setOverlay(overlay);
+        }
+
+        @Override
+        public void setItemList(List<CacheOverlay> itemList) {
+            for (int i = 0; i < itemList.size(); i++) {
+                CacheOverlay overlay = itemList.get(i);
+                itemIds.put(overlay, (long) i);
+            }
+            super.setItemList(itemList);
         }
     }
 
@@ -59,7 +76,8 @@ public class MapOverlaysListFragment extends Fragment {
             enabled = (SwitchCompat) itemView.findViewById(R.id.overlay_item_enabled);
         }
 
-        private void setOverlay(CacheOverlay overlay) {
+        private void setOverlay(CacheOverlay x) {
+            overlay = x;
             Integer iconResourceId = overlay.getIconImageResourceId();
             if (iconResourceId != null) {
                 icon.setImageResource(iconResourceId);
@@ -67,17 +85,20 @@ public class MapOverlaysListFragment extends Fragment {
             name.setText(overlay.getOverlayName());
             enabled.setOnCheckedChangeListener(null);
             // TODO: set inivisible to suppress animation so switches don't animate as list scrolls; is there a better way?
-            enabled.setVisibility(View.INVISIBLE);
+//            enabled.setVisibility(View.INVISIBLE);
             enabled.setChecked(overlayManager.isOverlayVisible(overlay));
+            enabled.jumpDrawablesToCurrentState();
             enabled.setOnCheckedChangeListener(this);
-            enabled.setVisibility(View.VISIBLE);
-//            enabled.jumpDrawablesToCurrentState();
+//            enabled.setVisibility(View.VISIBLE);
         }
 
         @Override
         public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
             if (isChecked){
                 overlayManager.showOverlay(overlay);
+            }
+            else {
+                overlayManager.hideOverlay(overlay);
             }
         }
     }
@@ -95,17 +116,33 @@ public class MapOverlaysListFragment extends Fragment {
     @Nullable
     @Override
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        View root = inflater.inflate(R.layout.fragment_map_overlays_tiles, container, true);
+        View root = inflater.inflate(R.layout.fragment_map_overlays_tiles, container, false);
         overlaysListView = (DragListView) root.findViewById(R.id.tile_overlays_list);
         overlaysListView.getRecyclerView().setVerticalScrollBarEnabled(true);
         overlaysListView.setLayoutManager(new LinearLayoutManager(getContext()));
         overlaysListView.setAdapter(new OverlayItemAdapter(), true);
+        syncItemList();
         return root;
     }
 
-    public void setOverlays(List<CacheOverlay> x) {
-        List<CacheOverlay> writableList = new ArrayList<>(x);
-        OverlayItemAdapter adapter = (OverlayItemAdapter) overlaysListView.getAdapter();
-        adapter.setItemList(writableList);
+    public void setOverlayManager(OverlayOnMapManager x) {
+        overlayManager = x;
+        overlayManager.addOverlayOnMapListener(this);
+    }
+
+    @Override
+    public void overlaysChanged() {
+        syncItemList();
+    }
+
+    private void syncItemList() {
+        overlays = new ArrayList<>(overlayManager.getOverlays());
+        overlaysListView.getAdapter().setItemList(overlays);
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        overlayManager.removeOverlayOnMapListener(this);
     }
 }

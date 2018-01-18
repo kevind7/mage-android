@@ -14,8 +14,13 @@ import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
+import org.mockito.MockSettings;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
+import org.mockito.listeners.InvocationListener;
+import org.mockito.listeners.VerificationStartedListener;
+import org.mockito.mock.MockCreationSettings;
+import org.mockito.mock.SerializableMode;
 import org.mockito.stubbing.Answer;
 
 import java.io.File;
@@ -46,6 +51,7 @@ import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 
 @RunWith(AndroidJUnit4.class)
 @SmallTest
@@ -135,11 +141,33 @@ public class CacheManagerTest {
                 public List<File> getLocalSearchDirs() {
                     return cacheDirs;
                 }
-            });
+            })
+            .updatePermission(new CacheManager.CreateUpdatePermission(){});
+
 
         listener = mock(CacheManager.CacheOverlaysUpdateListener.class);
         cacheManager = new CacheManager(config);
-        cacheManager.registerCacheOverlayListener(listener);
+        cacheManager.addUpdateListener(listener);
+    }
+
+    @Test
+    public void isMockable() {
+        mock(CacheManager.class, withSettings()
+            .useConstructor(new CacheManager.Config().updatePermission(new CacheManager.CreateUpdatePermission(){})));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void requiresUpdatePermission() {
+        CacheManager manager = new CacheManager(new CacheManager.Config()
+            .cacheLocations(null)
+            .executor(executor)
+            .providers()
+            .updatePermission(null));
+    }
+
+    @Test(expected = Error.class)
+    public void cannotCreateUpdateWithoutPermission() {
+        cacheManager.new CacheOverlayUpdate(new CacheManager.CreateUpdatePermission() {}, null, null, null);
     }
 
     @Test
@@ -175,7 +203,7 @@ public class CacheManagerTest {
         assertThat(update.added, hasItem(catCache));
         assertTrue(update.updated.isEmpty());
         assertTrue(update.removed.isEmpty());
-        assertThat(update.allAvailable, sameInstance(caches));
+        assertThat(update.source, sameInstance(cacheManager));
     }
 
     @Test
@@ -203,7 +231,7 @@ public class CacheManagerTest {
         assertThat(update.added, hasItems(cache1, cache2));
         assertTrue(update.updated.isEmpty());
         assertTrue(update.removed.isEmpty());
-        assertThat(update.allAvailable, sameInstance(caches));
+        assertThat(update.source, sameInstance(cacheManager));
     }
 
     @Test
@@ -230,7 +258,7 @@ public class CacheManagerTest {
         assertThat(update.added, hasItems(dogCache1, dogCache2, catCache));
         assertTrue(update.updated.isEmpty());
         assertTrue(update.removed.isEmpty());
-        assertThat(update.allAvailable, sameInstance(caches));
+        assertThat(update.source, sameInstance(cacheManager));
     }
 
     @Test
@@ -271,7 +299,7 @@ public class CacheManagerTest {
         assertThat(update.added, empty());
         assertThat(update.updated, empty());
         assertThat(update.removed, hasItems(dogCache1, catCache));
-        assertThat(update.allAvailable, sameInstance(caches));
+        assertThat(update.source, sameInstance(cacheManager));
     }
 
     @Test
@@ -313,6 +341,7 @@ public class CacheManagerTest {
         assertThat(update.updated.size(), is(1));
         assertThat(update.updated, hasItem(sameInstance(dogUpdated)));
         assertThat(update.removed, empty());
+        assertThat(update.source, sameInstance(cacheManager));
     }
 
     @Test

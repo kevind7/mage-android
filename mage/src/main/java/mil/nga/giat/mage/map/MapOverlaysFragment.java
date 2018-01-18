@@ -15,17 +15,26 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 
 import mil.nga.giat.mage.R;
+import mil.nga.giat.mage.map.cache.OverlayOnMapManager;
 
 public class MapOverlaysFragment extends Fragment {
 
-    // TODO: Rename and change types of parameters
     private String tilesTitle;
     private String featuresTitle;
-    private Fragment tilesFragment;
+    private MapOverlaysListFragment tilesFragment;
     private Fragment featuresFragment;
-    private OverlayTabsPagerAdapter pagerAdapter;
+    private OverlayOnMapManager overlayManager;
 
     public MapOverlaysFragment() {
+    }
+
+    public void setOverlayManager(OverlayOnMapManager x) {
+        overlayManager = x;
+    }
+
+    @Override
+    public void onAttach(Context context) {
+        super.onAttach(context);
     }
 
     @Override
@@ -33,10 +42,6 @@ public class MapOverlaysFragment extends Fragment {
         super.onCreate(savedInstanceState);
         tilesTitle = getResources().getString(R.string.overlay_tab_tiles);
         featuresTitle = getResources().getString(R.string.overlay_tab_features);
-        tilesFragment = new TestPageFragment();
-        Bundle tilesArgs = new Bundle();
-        tilesArgs.putCharSequence("text", "TILES");
-        tilesFragment.setArguments(tilesArgs);
         featuresFragment = new TestPageFragment();
         Bundle featuresArgs = new Bundle();
         featuresArgs.putCharSequence("text", "FEATURES");
@@ -46,6 +51,8 @@ public class MapOverlaysFragment extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         // Inflate the layout for this fragment
+        tilesFragment = new MapOverlaysListFragment();
+        tilesFragment.setOverlayManager(overlayManager);
         View view = inflater.inflate(R.layout.fragment_map_overlays, container, false);
         ViewPager tabPager = (ViewPager) view.findViewById(R.id.map_overlay_tab_pager);
         if (tabPager != null) {
@@ -55,8 +62,8 @@ public class MapOverlaysFragment extends Fragment {
         }
         else {
             getChildFragmentManager().beginTransaction()
-                .replace(R.id.tiles_container, tilesFragment)
-                .replace(R.id.features_container, featuresFragment)
+                .add(R.id.tiles_container, tilesFragment)
+                .add(R.id.features_container, featuresFragment)
                 .commit();
         }
         return view;
@@ -68,13 +75,13 @@ public class MapOverlaysFragment extends Fragment {
     }
 
     @Override
-    public void onAttach(Context context) {
-        super.onAttach(context);
+    public void onDetach() {
+        super.onDetach();
     }
 
     @Override
-    public void onDetach() {
-        super.onDetach();
+    public void onDestroy() {
+        super.onDestroy();
     }
 
     public static class TestPageFragment extends Fragment {

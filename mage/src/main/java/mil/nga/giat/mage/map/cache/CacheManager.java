@@ -35,26 +35,46 @@ public class CacheManager {
     }
 
     /**
-     * Implement this interface and {@link #registerCacheOverlayListener(CacheOverlaysUpdateListener) register}
+     * Implement this interface and {@link #addUpdateListener(CacheOverlaysUpdateListener) register}
      * an instance to receive {@link #onCacheOverlaysUpdated(CacheOverlayUpdate) notifications} when the set of caches changes.
      */
     public interface CacheOverlaysUpdateListener {
         void onCacheOverlaysUpdated(CacheOverlayUpdate update);
     }
 
-    // TODO: will need this to restore functionality of identifying an explicitly added cache
-    // through the sharing/open-with mechanism and zooming the map to it
-    public static final class CacheOverlayUpdate {
+    /**
+     * The create update permission is an opaque interface that enforces only holders of
+     * the the permission instance have the ability to create a {@link CacheOverlayUpdate}
+     * associated with a given instance of {@link CacheManager}.  This can simply be an
+     * anonymous implementation created at the call site of the {@link Config#updatePermission(CreateUpdatePermission) configuration}.
+     * For example:
+     * <p>
+     * <pre>
+     * new CacheManager(new CacheManager.Config()<br>
+     *     .updatePermission(new CacheManager.CreateUpdatePermission(){})
+     *     // other config items
+     *     );
+     * </pre>
+     * </p>
+     * This prevents the programmer error of creating update objects outside of the
+     * <code>CacheManager</code> instance to {@link CacheOverlaysUpdateListener#onCacheOverlaysUpdated(CacheOverlayUpdate) deliver}
+     * to listeners.
+     */
+    public interface CreateUpdatePermission {};
+
+    public final class CacheOverlayUpdate {
         public final Set<MapCache> added;
         public final Set<MapCache> updated;
         public final Set<MapCache> removed;
-        public final Set<MapCache> allAvailable;
+        public final CacheManager source = CacheManager.this;
 
-        private CacheOverlayUpdate(Set<MapCache> added, Set<MapCache> updated, Set<MapCache> removed, Set<MapCache> allAvailable) {
+        public CacheOverlayUpdate(CreateUpdatePermission updatePermission, Set<MapCache> added, Set<MapCache> updated, Set<MapCache> removed) {
+            if (updatePermission != source.updatePermission) {
+                throw new Error("erroneous attempt to create update from cache manager instance " + CacheManager.this);
+            }
             this.added = added;
             this.updated = updated;
             this.removed = removed;
-            this.allAvailable = allAvailable;
         }
     }
 
@@ -64,12 +84,18 @@ public class CacheManager {
 
     public static class Config {
         private Application context;
+        private CreateUpdatePermission updatePermission;
         private CacheLocationProvider cacheLocations;
         private List<CacheProvider> providers = new ArrayList<>();
         private Executor executor = AsyncTask.SERIAL_EXECUTOR;
 
         public Config context(Application x) {
             context = x;
+            return this;
+        }
+
+        public Config updatePermission(CreateUpdatePermission x) {
+            updatePermission = x;
             return this;
         }
 
@@ -106,6 +132,7 @@ public class CacheManager {
         return instance;
     }
 
+    private final CreateUpdatePermission updatePermission;
     private final Application context;
     private final Executor executor;
     private final CacheLocationProvider cacheLocations;
@@ -117,26 +144,30 @@ public class CacheManager {
     private ImportCacheFileTask importCacheFilesForRefreshTask;
 
     public CacheManager(Config config) {
+        if (config.updatePermission == null) {
+            throw new IllegalArgumentException("update permission object must be non-null");
+        }
+        updatePermission = config.updatePermission;
         context = config.context;
         executor = config.executor;
         cacheLocations = config.cacheLocations;
         providers.addAll(config.providers);
     }
 
+    public void addUpdateListener(CacheOverlaysUpdateListener listener) {
+        cacheOverlayListeners.add(listener);
+    }
+
+    public void removeUpdateListener(CacheOverlaysUpdateListener listener) {
+        cacheOverlayListeners.remove(listener);
+    }
+
     public void tryImportCacheFile(File cacheFile) {
         new ImportCacheFileTask().executeOnExecutor(executor, cacheFile);
     }
 
-    public void registerCacheOverlayListener(CacheOverlaysUpdateListener listener) {
-        cacheOverlayListeners.add(listener);
-    }
-
     public void removeCacheOverlay(String name) {
         // TODO: rename to delete, implement CacheProvider.deleteCache()
-    }
-
-    public void unregisterCacheOverlayListener(CacheOverlaysUpdateListener listener) {
-        cacheOverlayListeners.remove(listener);
     }
 
     public Set<MapCache> getCaches() {
@@ -145,7 +176,7 @@ public class CacheManager {
 
     /**
      * Discover new caches available in standard {@link #cacheLocations locations}, then remove defunct caches.
-     * Asynchronous notifications to {@link #registerCacheOverlayListener(CacheOverlaysUpdateListener) listeners}
+     * Asynchronous notifications to {@link #addUpdateListener(CacheOverlaysUpdateListener) listeners}
      * will result, one notification per refresh, per listener.  Only one refresh can be active at any moment.
      */
     public void refreshAvailableCaches() {
@@ -234,10 +265,10 @@ public class CacheManager {
         caches = Collections.unmodifiableSet(new HashSet<>(incomingIndex.keySet()));
 
         CacheOverlayUpdate update = new CacheOverlayUpdate(
+            updatePermission,
             Collections.unmodifiableSet(added),
             Collections.unmodifiableSet(updated),
-            Collections.unmodifiableSet(removed),
-            caches);
+            Collections.unmodifiableSet(removed));
         for (CacheOverlaysUpdateListener listener : cacheOverlayListeners) {
             listener.onCacheOverlaysUpdated(update);
         }

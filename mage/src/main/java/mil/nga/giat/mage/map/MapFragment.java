@@ -138,7 +138,6 @@ public class MapFragment extends Fragment
 	private MAGE mage;
 	private ViewGroup container;
 	private ViewGroup mapWrapper;
-	private ViewGroup mapOverlaysContainer;
 	private MapView mapView;
 	private GoogleMap map;
 	private View searchLayout;
@@ -300,8 +299,7 @@ public class MapFragment extends Fragment
 		map.setOnCameraIdleListener(null);
 		map.clear();
 
-		// TODO: move clean up in GeoPackageCacheProvider
-//		geoPackageCache.closeAll();
+		mapOverlayManager.dispose();
 
 		staticGeometryCollection.clear();
 		staticGeometryCollection = null;
@@ -353,7 +351,6 @@ public class MapFragment extends Fragment
 		DrawableCompat.setTintList(drawable, AppCompatResources.getColorStateList(getContext(), R.color.map_search_icon));
 		searchButton.setOnClickListener(this);
 
-		mapOverlaysContainer = (ViewGroup) constraintLayout.findViewById(R.id.map_overlays_container);
 		overlaysButton = (FloatingActionButton) constraintLayout.findViewById(R.id.map_layer_options);
 		overlaysButton.setOnClickListener(this);
 
@@ -376,7 +373,6 @@ public class MapFragment extends Fragment
 		if (savedInstanceState != null) {
         	overlaysExpanded = savedInstanceState.getBoolean(STATE_OVERLAYS_EXPANDED, false);
 		}
-		reconcileOverlaysPanelState();
 
 		container.addView(constraintLayout);
 		return container;
@@ -418,6 +414,7 @@ public class MapFragment extends Fragment
 			LocationHelper.getInstance(mage).addListener(this);
 			StaticFeatureHelper.getInstance(mage).addListener(this);
 			mapOverlayManager = CacheManager.getInstance().createMapManager(map);
+			reconcileOverlaysPanelState();
 		}
 
 		ObservationLoadTask observationLoad = new ObservationLoadTask(getActivity(), observations);
@@ -516,7 +513,8 @@ public class MapFragment extends Fragment
 //		TransitionManager.beginDelayedTransition(constraintLayout);
 		if (overlaysExpanded) {
 			layoutOverlaysExpanded.applyTo(constraintLayout);
-			Fragment overlays = Fragment.instantiate(getActivity(), MapOverlaysFragment.class.getName());
+			MapOverlaysFragment overlays = (MapOverlaysFragment) Fragment.instantiate(getActivity(), MapOverlaysFragment.class.getName());
+			overlays.setOverlayManager(mapOverlayManager);
 			fragmentManager.beginTransaction().replace(R.id.map_overlays_container, overlays).commit();
 		}
 		else {

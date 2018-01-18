@@ -112,7 +112,8 @@ public class MAGE extends MultiDexApplication implements IUserEventListener, App
 			.context(this)
 			.providers(new XYZDirectoryCacheProvider())
 			.providers(new GeoPackageCacheProvider(this))
-			.cacheLocations(new DefaultCacheLocationProvider(this)));
+			.cacheLocations(new DefaultCacheLocationProvider(this))
+			.updatePermission(new CacheManager.CreateUpdatePermission(){}));
 
 		registerActivityLifecycleCallbacks(this);
 

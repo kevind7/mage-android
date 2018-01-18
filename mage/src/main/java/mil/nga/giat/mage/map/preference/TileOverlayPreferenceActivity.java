@@ -126,7 +126,7 @@ public class TileOverlayPreferenceActivity extends AppCompatActivity  {
             // before I register as the call back will set it to enabled
             // the problem is that onResume gets called before this so my menu is
             // not yet setup and I will not have a handle on this button
-            CacheManager.getInstance().registerCacheOverlayListener(this);
+            CacheManager.getInstance().addUpdateListener(this);
         }
 
         @Override
@@ -147,7 +147,7 @@ public class TileOverlayPreferenceActivity extends AppCompatActivity  {
         public void onDestroy() {
             super.onDestroy();
 
-            CacheManager.getInstance().unregisterCacheOverlayListener(this);
+            CacheManager.getInstance().removeUpdateListener(this);
         }
 
         @Override
