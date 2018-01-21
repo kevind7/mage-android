@@ -881,7 +881,7 @@ public class MapFragment extends Fragment
 			return;
 		}
 		MapCache explicitlyRequestedCache = update.added.iterator().next();
-		for (CacheOverlay cacheOverlay : explicitlyRequestedCache.getCacheOverlays()) {
+		for (CacheOverlay cacheOverlay : explicitlyRequestedCache.getCacheOverlays().values()) {
 			mapOverlayManager.showOverlay(cacheOverlay);
 		}
 		CameraUpdate showCache = CameraUpdateFactory.newLatLngBounds(explicitlyRequestedCache.getBounds(), 0);

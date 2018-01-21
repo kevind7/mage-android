@@ -9,9 +9,11 @@ import com.google.android.gms.maps.model.LatLng;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 
 @MainThread
 public class OverlayOnMapManager implements CacheManager.CacheOverlaysUpdateListener {
@@ -33,6 +35,14 @@ public class OverlayOnMapManager implements CacheManager.CacheOverlaysUpdateList
         abstract protected String onMapClick(LatLng latLng, MapView mapView);
     }
 
+    private static String keyForCache(MapCache cache) {
+        return cache.getName() + ":" + cache.getType().getName();
+    }
+
+    private static String keyForCache(CacheOverlay overlay) {
+        return overlay.getCacheName() + ":" + overlay.getCacheType().getName();
+    }
+
     private final CacheManager cacheManager;
     private final GoogleMap map;
     private final Map<Class<? extends CacheProvider>, CacheProvider> providers = new HashMap<>();
@@ -47,42 +57,49 @@ public class OverlayOnMapManager implements CacheManager.CacheOverlaysUpdateList
             this.providers.put(provider.getClass(), provider);
         }
         for (MapCache cache : cacheManager.getCaches()) {
-            overlayOrder.addAll(cache.getCacheOverlays());
+            overlayOrder.addAll(cache.getCacheOverlays().values());
         }
         cacheManager.addUpdateListener(this);
     }
 
     @Override
     public void onCacheOverlaysUpdated(CacheManager.CacheOverlayUpdate update) {
+        Set<String> removedCacheNames = new HashSet<>(update.removed.size());
         for (MapCache removed : update.removed) {
-			for (CacheOverlay cacheOverlay : removed.getCacheOverlays()) {
-		        overlayOrder.remove(cacheOverlay);
-				OverlayOnMap onMap = overlaysOnMap.remove(cacheOverlay);
-				if (onMap != null) {
-					onMap.removeFromMap();
-				}
-			}
+			removedCacheNames.add(removed.getName());
 		}
+		Map<String, MapCache> updatedCaches = new HashMap<>(update.updated.size());
+        for (MapCache cache : update.updated) {
+            updatedCaches.put(keyForCache(cache), cache);
+        }
 
-		Set<CacheOverlay> updatedOnMap = new HashSet<>(overlaysOnMap.size());
-		for (MapCache updated : update.updated) {
-			for (CacheOverlay cacheOverlay : updated.getCacheOverlays()) {
-				if (overlaysOnMap.containsKey(cacheOverlay)) {
-					updatedOnMap.add(cacheOverlay);
-				}
-			}
-		}
-		for (CacheOverlay cacheOverlay : updatedOnMap) {
-			OverlayOnMap onMap = overlaysOnMap.remove(cacheOverlay);
-			boolean visible = onMap.isVisible();
-			onMap.removeFromMap();
-			addOverlayToMap(cacheOverlay, visible);
-		}
+        int position = 0;
+        Iterator<CacheOverlay> orderIterator = overlayOrder.iterator();
+        while (orderIterator.hasNext()) {
+            CacheOverlay overlay = orderIterator.next();
+            if (removedCacheNames.contains(overlay.getCacheName())) {
+                removeFromMapReturningVisibility(overlay);
+                orderIterator.remove();
+            }
+            else {
+                String cacheKey = keyForCache(overlay);
+                MapCache updatedCache = updatedCaches.get(cacheKey);
+                if (updatedCache != null) {
+                    if (updatedCache.getCacheOverlays().containsKey(overlay.getOverlayName())) {
+                        refreshOverlayAtPositionFromUpdatedCache(position, updatedCache);
+                    }
+                    else {
+                        removeFromMapReturningVisibility(overlay);
+                        orderIterator.remove();
+                    }
+                }
+            }
+            position++;
+        }
 
         for (MapCache added : update.added) {
-            for (CacheOverlay cacheOverlay : added.getCacheOverlays()) {
-                // TODO: create by default or lazy?
-                addOverlayToMap(cacheOverlay, false);
+            for (CacheOverlay overlay : added.getCacheOverlays().values()) {
+                overlayOrder.add(overlay);
             }
         }
 
@@ -144,14 +161,40 @@ public class OverlayOnMapManager implements CacheManager.CacheOverlaysUpdateList
         cacheManager.removeUpdateListener(this);
     }
 
+    private boolean removeFromMapReturningVisibility(CacheOverlay overlay) {
+        boolean wasVisible = false;
+        OverlayOnMap onMap = overlaysOnMap.remove(overlay);
+        if (onMap != null) {
+            wasVisible = onMap.isVisible();
+            onMap.removeFromMap();
+        }
+        return wasVisible;
+    }
+
+    private void refreshOverlayAtPositionFromUpdatedCache(int position, MapCache updatedCache) {
+        CacheOverlay currentOverlay = overlayOrder.get(position);
+        CacheOverlay updatedOverlay = updatedCache.getCacheOverlays().get(currentOverlay.getOverlayName());
+        if (currentOverlay == updatedOverlay) {
+            return;
+        }
+        overlayOrder.set(position, updatedOverlay);
+        if (removeFromMapReturningVisibility(currentOverlay)) {
+            addOverlayToMap(updatedOverlay, true);
+        }
+    }
+
+    private void disposeOverlay(CacheOverlay overlay) {
+
+    }
+
     private void addOverlayToMap(CacheOverlay cacheOverlay, boolean visible) {
-        OverlayOnMap onMap = overlaysOnMap.get(cacheOverlay);
+        OverlayOnMap onMap = overlaysOnMap.remove(cacheOverlay);
         if (onMap == null) {
             CacheProvider provider = providers.get(cacheOverlay.getCacheType());
             onMap = provider.createOverlayOnMapFromCache(cacheOverlay, this);
-            overlaysOnMap.put(cacheOverlay, onMap);
-            overlayOrder.add(cacheOverlay);
         }
+        overlaysOnMap.put(cacheOverlay, onMap);
+
         if (onMap.isOnMap()) {
             onMap.show();
         }
