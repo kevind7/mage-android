@@ -2,10 +2,10 @@ package mil.nga.giat.mage.map.cache;
 
 import com.google.android.gms.maps.MapView;
 import com.google.android.gms.maps.model.LatLng;
-import com.google.common.cache.Cache;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.Mockito;
 
 import java.io.File;
 import java.util.Arrays;
@@ -19,10 +19,13 @@ import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.sameInstance;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
@@ -31,28 +34,32 @@ public class OverlayOnMapManagerTest implements CacheManager.CreateUpdatePermiss
 
     static class TestOverlayOnMap extends OverlayOnMapManager.OverlayOnMap {
 
+        boolean visible;
+        boolean onMap;
+
         TestOverlayOnMap(OverlayOnMapManager manager) {
             manager.super();
         }
 
         @Override
         protected void addToMapWithVisibility(boolean visible) {
-
+            onMap = true;
+            this.visible = visible;
         }
 
         @Override
         protected void removeFromMap() {
-
+            onMap = visible = false;
         }
 
         @Override
         protected void show() {
-
+            onMap = visible = true;
         }
 
         @Override
         protected void hide() {
-
+            visible = false;
         }
 
         @Override
@@ -62,17 +69,37 @@ public class OverlayOnMapManagerTest implements CacheManager.CreateUpdatePermiss
 
         @Override
         protected boolean isOnMap() {
-            return false;
+            return onMap;
         }
 
         @Override
         protected boolean isVisible() {
-            return false;
+            return visible;
         }
 
         @Override
         protected String onMapClick(LatLng latLng, MapView mapView) {
             return null;
+        }
+
+        OverlayOnMapManager.OverlayOnMap visible(boolean x) {
+            if (x) {
+                show();
+            }
+            else {
+                hide();
+            }
+            return this;
+        }
+
+        OverlayOnMapManager.OverlayOnMap onMap(boolean x) {
+            if (x) {
+                addToMapWithVisibility(this.isVisible());
+            }
+            else {
+                removeFromMap();
+            }
+            return this;
         }
     }
 
@@ -247,6 +274,30 @@ public class OverlayOnMapManagerTest implements CacheManager.CreateUpdatePermiss
         assertThat(overlayManager.getOverlays(), hasItem(overlay1));
         assertThat(overlayManager.getOverlays(), not(hasItem(sameInstance(overlay1))));
         assertThat(overlayManager.getOverlays(), hasItem(sameInstance(overlay1Updated)));
+    }
+
+    @Test
+    public void createsOverlaysOnMapLazily() {
+
+        CacheOverlay overlay1 = new CacheOverlayTest.TestCacheOverlay1("overlay 1", "test cache", provider1.getClass());
+        MapCache mapCache = new MapCache("test cache", provider1.getClass(), new File("test"), Collections.singleton(overlay1));
+        Set<MapCache> added = Collections.singleton(mapCache);
+        CacheManager.CacheOverlayUpdate update = cacheManager.new CacheOverlayUpdate(this, added, Collections.<MapCache>emptySet(), Collections.<MapCache>emptySet());
+        OverlayOnMapManager overlayManager = new OverlayOnMapManager(cacheManager, providers, null);
+
+        overlayManager.onCacheOverlaysUpdated(update);
+
+        assertThat(overlayManager.getOverlays().size(), is(1));
+        assertThat(overlayManager.getOverlays(), hasItems(overlay1));
+        assertFalse(overlayManager.isOverlayVisible(overlay1));
+        verify(provider1, never()).createOverlayOnMapFromCache(any(CacheOverlay.class), Mockito.same(overlayManager));
+
+        when(provider1.createOverlayOnMapFromCache(overlay1, overlayManager)).thenReturn(new TestOverlayOnMap(overlayManager));
+
+        overlayManager.showOverlay(overlay1);
+
+        assertTrue(overlayManager.isOverlayVisible(overlay1));
+        verify(provider1).createOverlayOnMapFromCache(overlay1, overlayManager);
     }
 
     @Test
