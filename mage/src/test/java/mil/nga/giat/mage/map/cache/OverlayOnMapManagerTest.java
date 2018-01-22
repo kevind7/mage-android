@@ -14,11 +14,14 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.sameInstance;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -201,25 +204,63 @@ public class OverlayOnMapManagerTest implements CacheManager.CreateUpdatePermiss
     @Test
     public void addsAndRemovesOverlaysFromUpdatedCachesWhenOverlayCountIsUnchanged() {
 
+        CacheOverlay overlay1 = new CacheOverlayTest.TestCacheOverlay1("overlay 1", "test cache", provider1.getClass());
+        MapCache cache = new MapCache("test cache", provider1.getClass(), null, Collections.singleton(overlay1));
+
+        when(cacheManager.getCaches()).thenReturn(Collections.singleton(cache));
+
+        OverlayOnMapManager overlayManager = new OverlayOnMapManager(cacheManager, providers, null);
+
+        assertThat(overlayManager.getOverlays().size(), is(1));
+        assertThat(overlayManager.getOverlays(), hasItem(overlay1));
+
+        CacheOverlay overlay2 = new CacheOverlayTest.TestCacheOverlay1("overlay 2", "test cache", provider1.getClass());
+        cache = new MapCache(cache.getName(), cache.getType(), null, Collections.singleton(overlay2));
+        CacheManager.CacheOverlayUpdate update = cacheManager.new CacheOverlayUpdate(
+            this, Collections.<MapCache>emptySet(), Collections.singleton(cache), Collections.<MapCache>emptySet());
+        overlayManager.onCacheOverlaysUpdated(update);
+
+        assertThat(overlayManager.getOverlays().size(), is(1));
+        assertThat(overlayManager.getOverlays(), hasItems(overlay2));
     }
 
     @Test
     public void replacesLikeOverlaysFromUpdatedCaches() {
 
+        CacheOverlay overlay1 = new CacheOverlayTest.TestCacheOverlay1("overlay 1", "test cache", provider1.getClass());
+        MapCache cache = new MapCache("test cache", provider1.getClass(), null, Collections.singleton(overlay1));
+
+        when(cacheManager.getCaches()).thenReturn(Collections.singleton(cache));
+
+        OverlayOnMapManager overlayManager = new OverlayOnMapManager(cacheManager, providers, null);
+
+        assertThat(overlayManager.getOverlays().size(), is(1));
+        assertThat(overlayManager.getOverlays(), hasItem(overlay1));
+
+        CacheOverlay overlay1Updated = new CacheOverlayTest.TestCacheOverlay1(overlay1.getOverlayName(), overlay1.getCacheName(), overlay1.getCacheType());
+        cache = new MapCache(cache.getName(), cache.getType(), null, Collections.singleton(overlay1Updated));
+        CacheManager.CacheOverlayUpdate update = cacheManager.new CacheOverlayUpdate(
+            this, Collections.<MapCache>emptySet(), Collections.singleton(cache), Collections.<MapCache>emptySet());
+        overlayManager.onCacheOverlaysUpdated(update);
+
+        assertThat(overlayManager.getOverlays().size(), is(1));
+        assertThat(overlayManager.getOverlays(), hasItem(overlay1));
+        assertThat(overlayManager.getOverlays(), not(hasItem(sameInstance(overlay1))));
+        assertThat(overlayManager.getOverlays(), hasItem(sameInstance(overlay1Updated)));
     }
 
     @Test
     public void doesNotUnnecessarilyRecreateOverlaysFromUpdatedCaches() {
-
+        fail("unimplemented");
     }
 
     @Test
     public void maintainsOrderOfUpdatedCacheOverlays() {
-
+        fail("unimplemented");
     }
 
     @Test
-    public void behavesWhenToCachesHaveOverlaysWithTheSameName() {
-
+    public void behavesWhenTwoCachesHaveOverlaysWithTheSameName() {
+        fail("unimplemented");
     }
 }
