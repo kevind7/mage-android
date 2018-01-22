@@ -9,9 +9,11 @@ import org.mockito.Mockito;
 
 import java.io.File;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static org.hamcrest.CoreMatchers.not;
@@ -24,8 +26,10 @@ import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
@@ -103,11 +107,12 @@ public class OverlayOnMapManagerTest implements CacheManager.CreateUpdatePermiss
         }
     }
 
+
     abstract class Provider1 implements CacheProvider {};
 
-    CacheManager cacheManager;
-    Provider1 provider1;
-    List<CacheProvider> providers;
+    private CacheManager cacheManager;
+    private Provider1 provider1;
+    private List<CacheProvider> providers;
 
     @Before
     public void setup() {
@@ -300,18 +305,139 @@ public class OverlayOnMapManagerTest implements CacheManager.CreateUpdatePermiss
         verify(provider1).createOverlayOnMapFromCache(overlay1, overlayManager);
     }
 
+
     @Test
-    public void doesNotUnnecessarilyRecreateOverlaysFromUpdatedCaches() {
+    public void refreshesVisibleOverlayOnMapWhenUpdated() {
+
+        CacheOverlay overlay1 = new CacheOverlayTest.TestCacheOverlay1("overlay 1", "test cache", provider1.getClass());
+        MapCache cache = new MapCache("test cache", provider1.getClass(), new File("test"), Collections.singleton(overlay1));
+
+        when(cacheManager.getCaches()).thenReturn(Collections.singleton(cache));
+
+        OverlayOnMapManager overlayManager = new OverlayOnMapManager(cacheManager, providers, null);
+
+        assertThat(overlayManager.getOverlays().size(), is(1));
+        assertThat(overlayManager.getOverlays(), hasItem(overlay1));
+        assertFalse(overlayManager.isOverlayVisible(overlay1));
+
+        OverlayOnMapManager.OverlayOnMap onMap =  mock(OverlayOnMapManager.OverlayOnMap.class, withSettings().useConstructor(overlayManager));
+        when(provider1.createOverlayOnMapFromCache(overlay1, overlayManager)).thenReturn(onMap);
+
+        overlayManager.showOverlay(overlay1);
+
+        verify(provider1).createOverlayOnMapFromCache(overlay1, overlayManager);
+        verify(onMap).addToMapWithVisibility(true);
+
+        overlay1 = new CacheOverlayTest.TestCacheOverlay1(overlay1.getOverlayName(), overlay1.getCacheName(), overlay1.getCacheType());
+        cache = new MapCache(cache.getName(), cache.getType(), null, Collections.singleton(overlay1));
+        CacheManager.CacheOverlayUpdate update = cacheManager.new CacheOverlayUpdate(this, Collections.<MapCache>emptySet(), Collections.singleton(cache), Collections.<MapCache>emptySet());
+
+        OverlayOnMapManager.OverlayOnMap onMapUpdated = mock(OverlayOnMapManager.OverlayOnMap.class, withSettings().useConstructor(overlayManager));
+        when(provider1.createOverlayOnMapFromCache(overlay1, overlayManager)).thenReturn(onMapUpdated);
+        when(onMap.isOnMap()).thenReturn(true);
+        when(onMap.isVisible()).thenReturn(true);
+
+        overlayManager.onCacheOverlaysUpdated(update);
+
+        verify(onMap).removeFromMap();
+        verify(provider1).createOverlayOnMapFromCache(Mockito.same(overlay1), Mockito.same(overlayManager));
+        verify(onMapUpdated).addToMapWithVisibility(true);
+    }
+
+    @Test
+    public void doesNotRefreshHiddenOverlayOnMapWhenUpdated() {
+
+        CacheOverlay overlay1 = new CacheOverlayTest.TestCacheOverlay1("overlay 1", "test cache", provider1.getClass());
+        MapCache cache = new MapCache("test cache", provider1.getClass(), new File("test"), Collections.singleton(overlay1));
+
+        when(cacheManager.getCaches()).thenReturn(Collections.singleton(cache));
+
+        OverlayOnMapManager overlayManager = new OverlayOnMapManager(cacheManager, providers, null);
+
+        assertThat(overlayManager.getOverlays().size(), is(1));
+        assertThat(overlayManager.getOverlays(), hasItem(overlay1));
+        assertFalse(overlayManager.isOverlayVisible(overlay1));
+
+        OverlayOnMapManager.OverlayOnMap onMap =  mock(OverlayOnMapManager.OverlayOnMap.class, withSettings().useConstructor(overlayManager));
+        when(provider1.createOverlayOnMapFromCache(overlay1, overlayManager)).thenReturn(onMap);
+
+        overlayManager.showOverlay(overlay1);
+
+        verify(provider1).createOverlayOnMapFromCache(overlay1, overlayManager);
+        verify(onMap).addToMapWithVisibility(true);
+
+        overlay1 = new CacheOverlayTest.TestCacheOverlay1(overlay1.getOverlayName(), overlay1.getCacheName(), overlay1.getCacheType());
+        cache = new MapCache(cache.getName(), cache.getType(), null, Collections.singleton(overlay1));
+        CacheManager.CacheOverlayUpdate update = cacheManager.new CacheOverlayUpdate(this, Collections.<MapCache>emptySet(), Collections.singleton(cache), Collections.<MapCache>emptySet());
+
+        OverlayOnMapManager.OverlayOnMap onMapUpdated = mock(OverlayOnMapManager.OverlayOnMap.class, withSettings().useConstructor(overlayManager));
+        when(provider1.createOverlayOnMapFromCache(overlay1, overlayManager)).thenReturn(onMapUpdated);
+        when(onMap.isOnMap()).thenReturn(true);
+        when(onMap.isVisible()).thenReturn(false);
+
+        overlayManager.onCacheOverlaysUpdated(update);
+
+        verify(onMap).removeFromMap();
+        verify(provider1, never()).createOverlayOnMapFromCache(Mockito.same(overlay1), Mockito.same(overlayManager));
+        verify(onMapUpdated, never()).addToMapWithVisibility(anyBoolean());
+    }
+
+    @Test
+    public void doesNotRefreshUnchangedVisibleOverlaysFromUpdatedCaches() {
+
+        CacheOverlay overlay1 = new CacheOverlayTest.TestCacheOverlay1("overlay 1", "test cache", provider1.getClass());
+        MapCache cache = new MapCache("test cache", provider1.getClass(), new File("test"), Collections.singleton(overlay1));
+
+        when(cacheManager.getCaches()).thenReturn(Collections.singleton(cache));
+
+        OverlayOnMapManager overlayManager = new OverlayOnMapManager(cacheManager, providers, null);
+
+        assertThat(overlayManager.getOverlays().size(), is(1));
+        assertThat(overlayManager.getOverlays(), hasItem(overlay1));
+        assertFalse(overlayManager.isOverlayVisible(overlay1));
+
+        OverlayOnMapManager.OverlayOnMap onMap =  mock(OverlayOnMapManager.OverlayOnMap.class, withSettings().useConstructor(overlayManager));
+        when(provider1.createOverlayOnMapFromCache(overlay1, overlayManager)).thenReturn(onMap);
+
+        overlayManager.showOverlay(overlay1);
+
+        verify(provider1).createOverlayOnMapFromCache(overlay1, overlayManager);
+        verify(onMap).addToMapWithVisibility(true);
+
+        CacheOverlay overlay2 = new CacheOverlayTest.TestCacheOverlay1("overlay 2", cache.getName(), cache.getType());
+        cache = new MapCache(cache.getName(), cache.getType(), null, new HashSet<>(Arrays.asList(overlay1, overlay2)));
+        CacheManager.CacheOverlayUpdate update = cacheManager.new CacheOverlayUpdate(this, Collections.<MapCache>emptySet(), Collections.singleton(cache), Collections.<MapCache>emptySet());
+
+        OverlayOnMapManager.OverlayOnMap onMapUpdated = mock(OverlayOnMapManager.OverlayOnMap.class, withSettings().useConstructor(overlayManager));
+
+        overlayManager.onCacheOverlaysUpdated(update);
+
+        verify(onMap, never()).removeFromMap();
+        verify(provider1, times(1)).createOverlayOnMapFromCache(Mockito.same(overlay1), Mockito.same(overlayManager));
+        verify(onMapUpdated, never()).addToMapWithVisibility(anyBoolean());
+    }
+
+    @Test
+    public void removesOverlayOnMapWhenOverlayIsRemovedFromCache() {
+
+        fail("unimplemented");
+    }
+
+    @Test
+    public void removesOverlayOnMapWhenCacheIsRemoved() {
+
         fail("unimplemented");
     }
 
     @Test
     public void maintainsOrderOfUpdatedCacheOverlays() {
+
         fail("unimplemented");
     }
 
     @Test
     public void behavesWhenTwoCachesHaveOverlaysWithTheSameName() {
+        
         fail("unimplemented");
     }
 }
