@@ -81,6 +81,7 @@ public class OverlayOnMapManager implements CacheManager.CacheOverlaysUpdateList
             if (removedCacheNames.contains(overlay.getCacheName())) {
                 removeFromMapReturningVisibility(overlay);
                 orderIterator.remove();
+                position--;
             }
             else {
                 String cacheKey = keyForCache(overlay);
@@ -93,6 +94,7 @@ public class OverlayOnMapManager implements CacheManager.CacheOverlaysUpdateList
                     else {
                         removeFromMapReturningVisibility(overlay);
                         orderIterator.remove();
+                        position--;
                     }
                 }
             }
