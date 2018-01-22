@@ -68,9 +68,10 @@ public class OverlayOnMapManager implements CacheManager.CacheOverlaysUpdateList
         for (MapCache removed : update.removed) {
 			removedCacheNames.add(removed.getName());
 		}
-		Map<String, MapCache> updatedCaches = new HashMap<>(update.updated.size());
+		Map<String, Map<String, CacheOverlay>> updatedCaches = new HashMap<>(update.updated.size());
         for (MapCache cache : update.updated) {
-            updatedCaches.put(keyForCache(cache), cache);
+            Map<String, CacheOverlay> updatedOverlays = new HashMap<>(cache.getCacheOverlays());
+            updatedCaches.put(keyForCache(cache), updatedOverlays);
         }
 
         int position = 0;
@@ -83,10 +84,11 @@ public class OverlayOnMapManager implements CacheManager.CacheOverlaysUpdateList
             }
             else {
                 String cacheKey = keyForCache(overlay);
-                MapCache updatedCache = updatedCaches.get(cacheKey);
-                if (updatedCache != null) {
-                    if (updatedCache.getCacheOverlays().containsKey(overlay.getOverlayName())) {
-                        refreshOverlayAtPositionFromUpdatedCache(position, updatedCache);
+                Map<String, CacheOverlay> updatedCacheOverlays = updatedCaches.get(cacheKey);
+                if (updatedCacheOverlays != null) {
+                    CacheOverlay updatedOverlay = updatedCacheOverlays.remove(overlay.getOverlayName());
+                    if (updatedOverlay != null) {
+                        refreshOverlayAtPositionFromUpdatedCache(position, updatedOverlay);
                     }
                     else {
                         removeFromMapReturningVisibility(overlay);
@@ -95,6 +97,10 @@ public class OverlayOnMapManager implements CacheManager.CacheOverlaysUpdateList
                 }
             }
             position++;
+        }
+
+        for (Map<String, CacheOverlay> newOverlaysFromUpdatedCaches : updatedCaches.values()) {
+            overlayOrder.addAll(newOverlaysFromUpdatedCaches.values());
         }
 
         for (MapCache added : update.added) {
@@ -171,9 +177,8 @@ public class OverlayOnMapManager implements CacheManager.CacheOverlaysUpdateList
         return wasVisible;
     }
 
-    private void refreshOverlayAtPositionFromUpdatedCache(int position, MapCache updatedCache) {
+    private void refreshOverlayAtPositionFromUpdatedCache(int position, CacheOverlay updatedOverlay) {
         CacheOverlay currentOverlay = overlayOrder.get(position);
-        CacheOverlay updatedOverlay = updatedCache.getCacheOverlays().get(currentOverlay.getOverlayName());
         if (currentOverlay == updatedOverlay) {
             return;
         }

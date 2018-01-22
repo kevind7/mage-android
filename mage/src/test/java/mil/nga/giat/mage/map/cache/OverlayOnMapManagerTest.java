@@ -2,14 +2,12 @@ package mil.nga.giat.mage.map.cache;
 
 import com.google.android.gms.maps.MapView;
 import com.google.android.gms.maps.model.LatLng;
-
-import junit.framework.Assert;
+import com.google.common.cache.Cache;
 
 import org.junit.Before;
 import org.junit.Test;
 
 import java.io.File;
-import java.security.Provider;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
@@ -83,6 +81,7 @@ public class OverlayOnMapManagerTest implements CacheManager.CreateUpdatePermiss
 
     @Before
     public void setup() {
+
         provider1 = mock(Provider1.class);
         cacheManager = mock(CacheManager.class, withSettings().useConstructor(new CacheManager.Config().updatePermission(this)));
         providers = Collections.<CacheProvider>singletonList(provider1);
@@ -90,6 +89,7 @@ public class OverlayOnMapManagerTest implements CacheManager.CreateUpdatePermiss
 
     @Test
     public void listensToCacheManagerUpdates() {
+
         OverlayOnMapManager overlayManager = new OverlayOnMapManager(cacheManager, providers, null);
 
         verify(cacheManager).addUpdateListener(overlayManager);
@@ -97,6 +97,7 @@ public class OverlayOnMapManagerTest implements CacheManager.CreateUpdatePermiss
 
     @Test
     public void disposeStopsListeningToCacheManager() {
+
         OverlayOnMapManager overlayManager = new OverlayOnMapManager(cacheManager, providers, null);
         overlayManager.dispose();
 
@@ -105,10 +106,11 @@ public class OverlayOnMapManagerTest implements CacheManager.CreateUpdatePermiss
 
     @Test
     public void addsOverlaysFromAddedCaches() {
+
         OverlayOnMapManager overlayManager = new OverlayOnMapManager(cacheManager, providers, null);
         CacheOverlay overlay1 = new CacheOverlayTest.TestCacheOverlay1("test overlay 1", "test cache", provider1.getClass());
         CacheOverlay overlay2 = new CacheOverlayTest.TestCacheOverlay1("test overlay 2", "test cache", provider1.getClass());
-        MapCache mapCache = new MapCache("test cache", Provider1.class, new File("test"), new HashSet<>(Arrays.asList(overlay1, overlay2)));
+        MapCache mapCache = new MapCache("test cache", provider1.getClass(), new File("test"), new HashSet<>(Arrays.asList(overlay1, overlay2)));
         Set<MapCache> added = Collections.singleton(mapCache);
         CacheManager.CacheOverlayUpdate update = cacheManager.new CacheOverlayUpdate(this, added, Collections.<MapCache>emptySet(), Collections.<MapCache>emptySet());
 
@@ -123,23 +125,19 @@ public class OverlayOnMapManagerTest implements CacheManager.CreateUpdatePermiss
 
     @Test
     public void removesOverlaysFromRemovedCaches() {
-        OverlayOnMapManager overlayManager = new OverlayOnMapManager(cacheManager, providers, null);
+
         CacheOverlay overlay1 = new CacheOverlayTest.TestCacheOverlay1("test overlay 1", "test cache", provider1.getClass());
         CacheOverlay overlay2 = new CacheOverlayTest.TestCacheOverlay1("test overlay 2", "test cache", provider1.getClass());
-        MapCache mapCache = new MapCache("test cache", Provider1.class, new File("test"), new HashSet<>(Arrays.asList(overlay1, overlay2)));
-        Set<MapCache> added = Collections.singleton(mapCache);
-        CacheManager.CacheOverlayUpdate update = cacheManager.new CacheOverlayUpdate(this, added, Collections.<MapCache>emptySet(), Collections.<MapCache>emptySet());
+        MapCache mapCache = new MapCache("test cache", provider1.getClass(), new File("test"), new HashSet<>(Arrays.asList(overlay1, overlay2)));
 
-        when(provider1.createOverlayOnMapFromCache(overlay1, overlayManager)).thenReturn(new TestOverlayOnMap(overlayManager));
-        when(provider1.createOverlayOnMapFromCache(overlay2, overlayManager)).thenReturn(new TestOverlayOnMap(overlayManager));
+        when(cacheManager.getCaches()).thenReturn(Collections.singleton(mapCache));
 
-        overlayManager.onCacheOverlaysUpdated(update);
+        OverlayOnMapManager overlayManager = new OverlayOnMapManager(cacheManager, providers, null);
 
         assertThat(overlayManager.getOverlays().size(), is(2));
         assertThat(overlayManager.getOverlays(), hasItems(overlay1, overlay2));
 
-        update = cacheManager.new CacheOverlayUpdate(this, Collections.<MapCache>emptySet(), Collections.<MapCache>emptySet(), Collections.singleton(mapCache));
-
+        CacheManager.CacheOverlayUpdate update = cacheManager.new CacheOverlayUpdate(this, Collections.<MapCache>emptySet(), Collections.<MapCache>emptySet(), Collections.singleton(mapCache));
         overlayManager.onCacheOverlaysUpdated(update);
 
         assertTrue(overlayManager.getOverlays().isEmpty());
@@ -147,18 +145,14 @@ public class OverlayOnMapManagerTest implements CacheManager.CreateUpdatePermiss
 
     @Test
     public void removesOverlaysFromUpdatedCaches() {
+
+        CacheOverlay overlay1 = new CacheOverlayTest.TestCacheOverlay1("test overlay 1", "test cache", provider1.getClass());
+        CacheOverlay overlay2 = new CacheOverlayTest.TestCacheOverlay1("test overlay 2", "test cache", provider1.getClass());
+        MapCache mapCache = new MapCache("test cache", provider1.getClass(), new File("test"), new HashSet<>(Arrays.asList(overlay1, overlay2)));
+
+        when(cacheManager.getCaches()).thenReturn(Collections.singleton(mapCache));
+
         OverlayOnMapManager overlayManager = new OverlayOnMapManager(cacheManager, providers, null);
-        CacheOverlay overlay1 = new CacheOverlayTest.TestCacheOverlay1("test overlay 1", "test cache", Provider1.class);
-        CacheOverlay overlay2 = new CacheOverlayTest.TestCacheOverlay1("test overlay 2", "test cache", Provider1.class);
-        MapCache mapCache = new MapCache("test cache", Provider1.class, new File("test"), new HashSet<>(Arrays.asList(overlay1, overlay2)));
-        Set<MapCache> added = Collections.singleton(mapCache);
-        CacheManager.CacheOverlayUpdate update = cacheManager.new CacheOverlayUpdate(this,
-            added, Collections.<MapCache>emptySet(), Collections.<MapCache>emptySet());
-
-        when(provider1.createOverlayOnMapFromCache(overlay1, overlayManager)).thenReturn(new TestOverlayOnMap(overlayManager));
-        when(provider1.createOverlayOnMapFromCache(overlay2, overlayManager)).thenReturn(new TestOverlayOnMap(overlayManager));
-
-        overlayManager.onCacheOverlaysUpdated(update);
 
         List<CacheOverlay> overlays = overlayManager.getOverlays();
         assertThat(overlays.size(), is(2));
@@ -167,7 +161,7 @@ public class OverlayOnMapManagerTest implements CacheManager.CreateUpdatePermiss
         overlay2 = new CacheOverlayTest.TestCacheOverlay1(overlay2.getOverlayName(), overlay2.getCacheName(), overlay2.getCacheType());
         mapCache = new MapCache(mapCache.getName(), mapCache.getType(), mapCache.getSourceFile(), Collections.singleton(overlay2));
         Set<MapCache> updated = Collections.singleton(mapCache);
-        update = cacheManager.new CacheOverlayUpdate(this,
+        CacheManager.CacheOverlayUpdate update = cacheManager.new CacheOverlayUpdate(this,
             Collections.<MapCache>emptySet(), updated, Collections.<MapCache>emptySet());
 
         when(provider1.createOverlayOnMapFromCache(overlay2, overlayManager)).thenReturn(new TestOverlayOnMap(overlayManager));
@@ -182,15 +176,40 @@ public class OverlayOnMapManagerTest implements CacheManager.CreateUpdatePermiss
     @Test
     public void addsOverlaysFromUpdatedCaches() {
 
+        CacheOverlay overlay1 = new CacheOverlayTest.TestCacheOverlay1("test overlay 1", "test cache", provider1.getClass());
+        MapCache cache = new MapCache("test cache", provider1.getClass(), null, Collections.singleton(overlay1));
+
+        when(cacheManager.getCaches()).thenReturn(Collections.singleton(cache));
+
+        OverlayOnMapManager overlayManager = new OverlayOnMapManager(cacheManager, providers, null);
+
+        assertThat(overlayManager.getOverlays().size(), is(1));
+        assertThat(overlayManager.getOverlays(), hasItem(overlay1));
+
+
+        CacheOverlay overlay2 = new CacheOverlayTest.TestCacheOverlay1("test overlay 2", "test cache", provider1.getClass());
+        Set<CacheOverlay> overlays = new HashSet<>(Arrays.asList(overlay1, overlay2));
+        cache = new MapCache(cache.getName(), cache.getType(), null, overlays);
+        CacheManager.CacheOverlayUpdate update = cacheManager.new CacheOverlayUpdate(
+            this, Collections.<MapCache>emptySet(), Collections.singleton(cache), Collections.<MapCache>emptySet());
+        overlayManager.onCacheOverlaysUpdated(update);
+
+        assertThat(overlayManager.getOverlays().size(), is(2));
+        assertThat(overlayManager.getOverlays(), hasItems(overlay1, overlay2));
     }
 
     @Test
-    public void replacesOverlaysFromUpdatedCaches() {
+    public void addsAndRemovesOverlaysFromUpdatedCachesWhenOverlayCountIsUnchanged() {
 
     }
 
     @Test
-    public void doesNotUnnecessarilyRemoveAndRecreateOverlaysFromUpdatedCaches() {
+    public void replacesLikeOverlaysFromUpdatedCaches() {
+
+    }
+
+    @Test
+    public void doesNotUnnecessarilyRecreateOverlaysFromUpdatedCaches() {
 
     }
 
