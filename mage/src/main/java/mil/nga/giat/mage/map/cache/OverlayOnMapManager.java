@@ -104,9 +104,7 @@ public class OverlayOnMapManager implements CacheManager.CacheOverlaysUpdateList
         }
 
         for (MapCache added : update.added) {
-            for (CacheOverlay overlay : added.getCacheOverlays().values()) {
-                overlayOrder.add(overlay);
-            }
+            overlayOrder.addAll(added.getCacheOverlays().values());
         }
 
         for (OverlayOnMapListener listener : listeners) {
