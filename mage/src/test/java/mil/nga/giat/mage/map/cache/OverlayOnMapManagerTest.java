@@ -523,16 +523,36 @@ public class OverlayOnMapManagerTest implements CacheManager.CreateUpdatePermiss
 
     @Test
     public void behavesWhenTwoOverlaysFromDifferentCachesHaveTheSameName() {
+
         fail("unimplemented");
     }
 
     @Test
     public void behavesWhenTwoOverlaysAndTheirCachesHaveTheSameNames() {
+
         fail("unimplemented");
     }
 
     @Test
     public void maintainsOrderOfUpdatedCacheOverlays() {
+
+        fail("unimplemented");
+    }
+
+    @Test
+    public void updatesZOrder() {
+
+        fail("unimplemented");
+    }
+
+    @Test
+    public void notifiesListenersWhenOverlaysUpdate() {
+
+        fail("unimplemented");
+    }
+
+    @Test
+    public void notifiesListenersWhenZOrderChanges() {
 
         fail("unimplemented");
     }
@@ -547,7 +567,7 @@ public class OverlayOnMapManagerTest implements CacheManager.CreateUpdatePermiss
     }
 
     @Test
-    public void disposeRemovesAndDisposesAllOverlaysFromMap() {
+    public void disposeRemovesAndDisposesAllOverlays() {
 
         CacheOverlay overlay1 = new CacheOverlayTest.TestCacheOverlay1("overlay1", "cache1", provider1.getClass());
         CacheOverlay overlay2 = new CacheOverlayTest.TestCacheOverlay1("overlay2", "cache1", provider1.getClass());
