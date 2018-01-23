@@ -16,6 +16,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -277,7 +278,6 @@ public class GeoPackageCacheProvider implements CacheProvider {
         }
 
         @Override
-        @NonNull
         public void addToMapWithVisibility(boolean visible) {
             if (tileOverlay == null) {
                 options.visible(visible);
@@ -286,7 +286,6 @@ public class GeoPackageCacheProvider implements CacheProvider {
         }
 
         @Override
-        @NonNull
         public void removeFromMap() {
             if (tileOverlay != null) {
                 tileOverlay.remove();
@@ -295,11 +294,9 @@ public class GeoPackageCacheProvider implements CacheProvider {
         }
 
         @Override
-        @NonNull
         public void zoomMapToBoundingBox() {
         }
 
-        @NonNull
         @Override
         public void show() {
             if (tileOverlay != null) {
@@ -307,7 +304,6 @@ public class GeoPackageCacheProvider implements CacheProvider {
             }
         }
 
-        @NonNull
         @Override
         public void hide() {
             if (tileOverlay != null) {
@@ -340,20 +336,22 @@ public class GeoPackageCacheProvider implements CacheProvider {
             return message.length() > 0 ? message.toString() : null;
         }
 
-        /**
-         * Add a feature overlay query
-         *
-         * @param featureOverlayQuery
-         */
         void addFeatureOverlayQuery(FeatureOverlayQuery featureOverlayQuery){
             featureOverlayQueries.add(featureOverlayQuery);
         }
 
-        /**
-         * Clear the feature overlay queries
-         */
-        public void clearFeatureOverlayQueries(){
-            featureOverlayQueries.clear();
+        void clearFeatureOverlayQueries(){
+            for (Iterator<FeatureOverlayQuery> queryIter = featureOverlayQueries.iterator(); queryIter.hasNext(); queryIter.next()) {
+                FeatureOverlayQuery query = queryIter.next();
+                query.close();
+                queryIter.remove();
+            }
+        }
+
+        @Override
+        protected void dispose() {
+            removeFromMap();
+            clearFeatureOverlayQueries();
         }
     }
 
@@ -394,8 +392,7 @@ public class GeoPackageCacheProvider implements CacheProvider {
         }
 
         @Override
-        @NonNull
-        public void addToMapWithVisibility(boolean visible) {
+        protected void addToMapWithVisibility(boolean visible) {
             for (TileTableOnMap linkedTileTable : linkedTiles){
                 linkedTileTable.addToMapWithVisibility(visible);
             }
@@ -413,8 +410,7 @@ public class GeoPackageCacheProvider implements CacheProvider {
         }
 
         @Override
-        @NonNull
-        public void removeFromMap() {
+        protected void removeFromMap() {
             removeShapes();
             if (overlay != null) {
                 overlay.remove();
@@ -428,14 +424,12 @@ public class GeoPackageCacheProvider implements CacheProvider {
         }
 
         @Override
-        @NonNull
-        public void zoomMapToBoundingBox() {
+        protected void zoomMapToBoundingBox() {
             // TODO
         }
 
-        @NonNull
         @Override
-        public void show() {
+        protected void show() {
             if (visible) {
                 return;
             }
@@ -452,9 +446,8 @@ public class GeoPackageCacheProvider implements CacheProvider {
             visible = true;
         }
 
-        @NonNull
         @Override
-        public void hide() {
+        protected void hide() {
             if (!visible) {
                 return;
             }
@@ -471,7 +464,7 @@ public class GeoPackageCacheProvider implements CacheProvider {
         }
 
         @Override
-        public String onMapClick(LatLng latLng, MapView mapView) {
+        protected String onMapClick(LatLng latLng, MapView mapView) {
             String message = null;
             if (query != null) {
                 message = query.buildMapClickMessage(latLng, mapView, map);
@@ -480,13 +473,25 @@ public class GeoPackageCacheProvider implements CacheProvider {
         }
 
         @Override
-        public boolean isOnMap() {
+        protected boolean isOnMap() {
             return onMap;
         }
 
         @Override
-        public boolean isVisible() {
+        protected boolean isVisible() {
             return visible;
+        }
+
+        @Override
+        protected void dispose() {
+            removeFromMap();
+            for (TileTableOnMap tilesOnMap : linkedTiles) {
+                tilesOnMap.dispose();
+            }
+            if (query != null) {
+                query.close();
+            }
+            shapeOptions.clear();
         }
 
         private void addShapes() {

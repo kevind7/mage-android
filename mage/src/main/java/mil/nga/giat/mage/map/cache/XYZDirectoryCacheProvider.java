@@ -31,7 +31,6 @@ public class XYZDirectoryCacheProvider implements CacheProvider {
             this.cache = cache;
         }
 
-        @NonNull
         @Override
         public void addToMapWithVisibility(boolean visibility) {
             TileProvider tileProvider = new FileSystemTileProvider(256, 256, cache.getDirectory().getAbsolutePath());
@@ -40,20 +39,17 @@ public class XYZDirectoryCacheProvider implements CacheProvider {
             overlay = map.addTileOverlay(overlayOptions);
         }
 
-        @NonNull
         @Override
         public void removeFromMap() {
             overlay.remove();
             overlay = null;
         }
 
-        @NonNull
         @Override
         public void zoomMapToBoundingBox() {
             // TODO
         }
 
-        @NonNull
         @Override
         public void show() {
             if (overlay != null) {
@@ -61,7 +57,6 @@ public class XYZDirectoryCacheProvider implements CacheProvider {
             }
         }
 
-        @NonNull
         @Override
         public void hide() {
             if (overlay != null) {
@@ -83,6 +78,10 @@ public class XYZDirectoryCacheProvider implements CacheProvider {
         @Override
         public boolean isVisible() {
             return overlay.isVisible();
+        }
+
+        @Override
+        protected void dispose() {
         }
     }
 

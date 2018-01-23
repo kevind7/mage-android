@@ -24,15 +24,42 @@ public class OverlayOnMapManager implements CacheManager.CacheOverlaysUpdateList
 
     public abstract class OverlayOnMap {
 
+        /**
+         * Add this overlay's objects to the map, e.g. {@link com.google.android.gms.maps.model.TileOverlay}s,
+         * {@link com.google.android.gms.maps.model.Marker}s, {@link com.google.android.gms.maps.model.Polygon}s, etc.
+         *
+         * @param visible whether the map objects should be visible when added to the map
+         */
         abstract protected void addToMapWithVisibility(boolean visible);
+
+        /**
+         * Remove this overlay's objects visible and hidden objects from the map.
+         */
         abstract protected void removeFromMap();
         abstract protected void show();
         abstract protected void hide();
+
+        /**
+         * TODO: change to CacheOverlay.getBoundingBox() instead so OverlayOnMapManager can do the zoom
+         */
         abstract protected void zoomMapToBoundingBox();
+
+        /**
+         * Return true if this overlay's {@link #addToMapWithVisibility(boolean) map objects} have been
+         * created and added to the map, regardless of visibility.
+         *
+         * @return
+         */
         abstract protected boolean isOnMap();
         abstract protected boolean isVisible();
         // TODO: this is awkward passing the map view and returning a string; probably can do better
         abstract protected String onMapClick(LatLng latLng, MapView mapView);
+
+        /**
+         * Clear all the resources this overlay might hold such as data source connections or large
+         * geometry collections and prepare for garbage collection.
+         */
+        abstract protected void dispose();
     }
 
     private static String keyForCache(MapCache cache) {
@@ -165,6 +192,13 @@ public class OverlayOnMapManager implements CacheManager.CacheOverlaysUpdateList
     public void dispose() {
         // TODO: remove and dispose all overlays/notify providers
         cacheManager.removeUpdateListener(this);
+        Iterator<Map.Entry<CacheOverlay, OverlayOnMap>> entries = overlaysOnMap.entrySet().iterator();
+        while (entries.hasNext()) {
+            OverlayOnMap onMap = entries.next().getValue();
+            onMap.removeFromMap();
+            onMap.dispose();
+            entries.remove();
+        }
     }
 
     private boolean removeFromMapReturningVisibility(CacheOverlay overlay) {
