@@ -62,6 +62,12 @@ public class MapCache {
         return null;
     }
 
+    /**
+     * Two {@link MapCache} objects are equal if and only if their {@link #getType() types}
+     * ane {@link #getName() names} are equal.
+     * @param obj
+     * @return
+     */
     public boolean equals(Object obj) {
         if (!(obj instanceof MapCache)) {
             return false;

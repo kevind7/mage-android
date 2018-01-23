@@ -107,6 +107,10 @@ public class OverlayOnMapManagerTest implements CacheManager.CreateUpdatePermiss
         }
     }
 
+    private static OverlayOnMapManager.OverlayOnMap mockOverlayOnMap(OverlayOnMapManager overlayManager) {
+        return mock(OverlayOnMapManager.OverlayOnMap.class, withSettings().useConstructor(overlayManager));
+    }
+
 
     abstract class Provider1 implements CacheProvider {};
 
@@ -479,13 +483,59 @@ public class OverlayOnMapManagerTest implements CacheManager.CreateUpdatePermiss
     }
 
     @Test
-    public void maintainsOrderOfUpdatedCacheOverlays() {
+    public void behavesWhenTwoCachesHaveOverlaysWithTheSameName() {
 
+        CacheOverlay overlay1 = new CacheOverlayTest.TestCacheOverlay1("overlay1", "cache1", provider1.getClass());
+        MapCache cache1 = new MapCache("cache1", provider1.getClass(), null, Collections.singleton(overlay1));
+
+        CacheOverlay overlay2 = new CacheOverlayTest.TestCacheOverlay2("overlay1", "cache2", provider1.getClass());
+        MapCache cache2 = new MapCache("cache2", provider1.getClass(), null, Collections.singleton(overlay2));
+
+        when(cacheManager.getCaches()).thenReturn(Collections.unmodifiableSet(new HashSet<MapCache>(Arrays.asList(cache1, cache2))));
+
+        OverlayOnMapManager overlayManager = new OverlayOnMapManager(cacheManager, providers, null);
+
+        assertThat(overlayManager.getOverlays().size(), is(2));
+        assertThat(overlayManager.getOverlays(), hasItems(overlay1, overlay2));
+
+        OverlayOnMapManager.OverlayOnMap onMap1 = mockOverlayOnMap(overlayManager);
+        OverlayOnMapManager.OverlayOnMap onMap2 = mockOverlayOnMap(overlayManager);
+        when(provider1.createOverlayOnMapFromCache(overlay1, overlayManager)).thenReturn(onMap1);
+        when(provider1.createOverlayOnMapFromCache(overlay2, overlayManager)).thenReturn(onMap2);
+
+        overlayManager.showOverlay(overlay1);
+
+        verify(provider1).createOverlayOnMapFromCache(overlay1, overlayManager);
+        verify(provider1, never()).createOverlayOnMapFromCache(overlay2, overlayManager);
+        verify(onMap1).addToMapWithVisibility(true);
+
+        overlayManager.showOverlay(overlay2);
+
+        verify(provider1).createOverlayOnMapFromCache(overlay1, overlayManager);
+        verify(provider1).createOverlayOnMapFromCache(overlay2, overlayManager);
+        verify(onMap1).addToMapWithVisibility(true);
+        verify(onMap2).addToMapWithVisibility(true);
+
+        when(onMap2.isVisible()).thenReturn(true);
+
+        overlayManager.hideOverlay(overlay2);
+
+        verify(onMap2).hide();
+        verify(onMap1, never()).hide();
+    }
+
+    @Test
+    public void behavesWhenTwoOverlaysFromDifferentCachesHaveTheSameName() {
         fail("unimplemented");
     }
 
     @Test
-    public void behavesWhenTwoCachesHaveOverlaysWithTheSameName() {
+    public void behavesWhenTwoOverlaysAndTheirCachesHaveTheSameNames() {
+        fail("unimplemented");
+    }
+
+    @Test
+    public void maintainsOrderOfUpdatedCacheOverlays() {
 
         fail("unimplemented");
     }
