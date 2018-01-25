@@ -73,7 +73,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
-import mil.nga.geopackage.BoundingBox;
 import mil.nga.giat.mage.MAGE;
 import mil.nga.giat.mage.R;
 import mil.nga.giat.mage.filter.DateTimeFilter;
@@ -154,9 +153,6 @@ public class MapFragment extends Fragment
 	private List<Marker> searchMarkers = new ArrayList<>();
 	private RefreshMarkersRunnable refreshLocationsTask;
 	private RefreshMarkersRunnable refreshHistoricLocationsTask;
-
-	// TODO: restore the functionality for this
-	private BoundingBox addedCacheBoundingBox;
 
 	private FloatingActionButton searchButton;
 	private FloatingActionButton zoomToLocationButton;
@@ -337,8 +333,7 @@ public class MapFragment extends Fragment
 	private View loadLayoutToContainer(LayoutInflater inflater, Bundle savedInstanceState) {
 		constraintLayout = (ConstraintLayout) inflater.inflate(R.layout.fragment_map, container, false);
 		layoutOverlaysCollapsed.clone(constraintLayout);
-		layoutOverlaysExpanded.load(getContext(), R.layout.fragment_map_expanded_overlays);
-		// TODO: load proper saved state of expanded/collapsed
+		layoutOverlaysExpanded.load(getContext(), R.layout.fragment_map_expanded_layers_panel);
 
 		staticGeometryCollection = new StaticGeometryCollection();
 
@@ -374,6 +369,7 @@ public class MapFragment extends Fragment
         	overlaysExpanded = savedInstanceState.getBoolean(STATE_OVERLAYS_EXPANDED, false);
 		}
 
+		reconcileOverlaysPanelState();
 		container.addView(constraintLayout);
 		return container;
 	}
@@ -414,7 +410,6 @@ public class MapFragment extends Fragment
 			LocationHelper.getInstance(mage).addListener(this);
 			StaticFeatureHelper.getInstance(mage).addListener(this);
 			mapOverlayManager = CacheManager.getInstance().createMapManager(map);
-			reconcileOverlaysPanelState();
 		}
 
 		ObservationLoadTask observationLoad = new ObservationLoadTask(getActivity(), observations);
@@ -730,9 +725,9 @@ public class MapFragment extends Fragment
 		((LocationMarkerCollection) locations).offMarkerClick();
 
 		staticGeometryCollection.onMapClick(map, latLng, getActivity());
-		mapOverlayManager.onMapClick(latLng, mapView);
 
 		// TODO: handle overlay clicks
+		mapOverlayManager.onMapClick(latLng, mapView);
 //		if(!overlays.isEmpty()) {
 //			StringBuilder clickMessage = new StringBuilder();
 //			for (CacheOverlay cacheOverlay : overlays.values()) {
@@ -877,15 +872,18 @@ public class MapFragment extends Fragment
 
 	@Override
 	public void onCacheOverlaysUpdated(CacheManager.CacheOverlayUpdate update) {
-		if (update.added.size() > 1) {
+		if (update.added.size() != 1) {
 			return;
 		}
 		MapCache explicitlyRequestedCache = update.added.iterator().next();
 		for (CacheOverlay cacheOverlay : explicitlyRequestedCache.getCacheOverlays().values()) {
 			mapOverlayManager.showOverlay(cacheOverlay);
 		}
-		CameraUpdate showCache = CameraUpdateFactory.newLatLngBounds(explicitlyRequestedCache.getBounds(), 0);
-		map.animateCamera(showCache);
+		LatLngBounds cacheBounds = explicitlyRequestedCache.getBounds();
+		if (cacheBounds != null) {
+			CameraUpdate showCache = CameraUpdateFactory.newLatLngBounds(cacheBounds, 0);
+			map.animateCamera(showCache);
+		}
 	}
 
 	private void updateStaticFeatureLayers() {
