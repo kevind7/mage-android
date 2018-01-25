@@ -16,6 +16,7 @@ import android.support.design.widget.BottomNavigationView;
 import android.support.design.widget.NavigationView;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentManager;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.graphics.drawable.RoundedBitmapDrawable;
 import android.support.v4.graphics.drawable.RoundedBitmapDrawableFactory;
@@ -392,7 +393,11 @@ public class LandingActivity extends AppCompatActivity implements NavigationView
             default:
                 return;
         }
-        getSupportFragmentManager().beginTransaction().replace(R.id.navigation_content, targetTab).commit();
+        FragmentManager fragmentManager = getSupportFragmentManager();
+        // TODO: track state when switching tabs
+//        Fragment currentTab = fragmentManager.findFragmentById(R.id.navigation_content);
+//        Fragment.SavedState state = fragmentManager.saveFragmentInstanceState(currentTab);
+        fragmentManager.beginTransaction().replace(R.id.navigation_content, targetTab).commit();
     }
 
     /**
