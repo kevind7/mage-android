@@ -1,7 +1,6 @@
 package mil.nga.giat.mage.map;
 
 import android.content.Context;
-import android.net.Uri;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.design.widget.TabLayout;
@@ -50,10 +49,9 @@ public class MapOverlaysFragment extends Fragment {
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-        // Inflate the layout for this fragment
         tilesFragment = new MapOverlaysListFragment();
         tilesFragment.setOverlayManager(overlayManager);
-        View view = inflater.inflate(R.layout.fragment_map_overlays, container, false);
+        View view = inflater.inflate(R.layout.fragment_map_layers, container, false);
         ViewPager tabPager = (ViewPager) view.findViewById(R.id.map_overlay_tab_pager);
         if (tabPager != null) {
             tabPager.setAdapter(new OverlayTabsPagerAdapter(getChildFragmentManager()));

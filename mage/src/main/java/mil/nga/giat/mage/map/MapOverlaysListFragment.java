@@ -66,13 +66,15 @@ public class MapOverlaysListFragment extends Fragment implements OverlayOnMapMan
 
         private final ImageView icon;
         private final TextView name;
+        private final TextView detail;
         private final SwitchCompat enabled;
         private CacheOverlay overlay;
 
         public OverlayItemViewHolder(View itemView) {
-            super(itemView, R.id.overlay_item_name, false);
+            super(itemView, R.id.overlay_item_drag_icon, false);
             icon = (ImageView) itemView.findViewById(R.id.overlay_item_image);
             name = (TextView) itemView.findViewById(R.id.overlay_item_name);
+            detail = (TextView) itemView.findViewById(R.id.overlay_item_detail);
             enabled = (SwitchCompat) itemView.findViewById(R.id.overlay_item_enabled);
         }
 
@@ -83,13 +85,12 @@ public class MapOverlaysListFragment extends Fragment implements OverlayOnMapMan
                 icon.setImageResource(iconResourceId);
             }
             name.setText(overlay.getOverlayName());
+            detail.setText(overlay.getCacheName());
             enabled.setOnCheckedChangeListener(null);
-            // TODO: set inivisible to suppress animation so switches don't animate as list scrolls; is there a better way?
-//            enabled.setVisibility(View.INVISIBLE);
             enabled.setChecked(overlayManager.isOverlayVisible(overlay));
+            // don't let the switches animate as the list scrolls
             enabled.jumpDrawablesToCurrentState();
             enabled.setOnCheckedChangeListener(this);
-//            enabled.setVisibility(View.VISIBLE);
         }
 
         @Override
@@ -106,7 +107,6 @@ public class MapOverlaysListFragment extends Fragment implements OverlayOnMapMan
 
     private OverlayOnMapManager overlayManager;
     private DragListView overlaysListView;
-    private List<CacheOverlay> overlays;
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -116,13 +116,20 @@ public class MapOverlaysListFragment extends Fragment implements OverlayOnMapMan
     @Nullable
     @Override
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        View root = inflater.inflate(R.layout.fragment_map_overlays_tiles, container, false);
+        View root = inflater.inflate(R.layout.fragment_map_layers_tiles, container, false);
         overlaysListView = (DragListView) root.findViewById(R.id.tile_overlays_list);
         overlaysListView.getRecyclerView().setVerticalScrollBarEnabled(true);
         overlaysListView.setLayoutManager(new LinearLayoutManager(getContext()));
         overlaysListView.setAdapter(new OverlayItemAdapter(), true);
+//        overlaysListView.setScrollingEnabled(false);
         syncItemList();
         return root;
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        overlayManager.removeOverlayOnMapListener(this);
     }
 
     public void setOverlayManager(OverlayOnMapManager x) {
@@ -136,13 +143,7 @@ public class MapOverlaysListFragment extends Fragment implements OverlayOnMapMan
     }
 
     private void syncItemList() {
-        overlays = new ArrayList<>(overlayManager.getOverlays());
-        overlaysListView.getAdapter().setItemList(overlays);
-    }
-
-    @Override
-    public void onDestroyView() {
-        super.onDestroyView();
-        overlayManager.removeOverlayOnMapListener(this);
+        OverlayItemAdapter adapter = (OverlayItemAdapter) overlaysListView.getAdapter();
+        adapter.setItemList(overlayManager.getOverlays());
     }
 }
