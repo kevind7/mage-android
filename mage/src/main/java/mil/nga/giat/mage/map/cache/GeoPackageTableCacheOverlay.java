@@ -33,7 +33,7 @@ public abstract class GeoPackageTableCacheOverlay extends CacheOverlay {
      * @param maxZoom    max zoom level
      */
     GeoPackageTableCacheOverlay(String geoPackage, String tableName, int count, int minZoom, Integer maxZoom) {
-        super(geoPackage, tableName, GeoPackageCacheProvider.class);
+        super(tableName, geoPackage, GeoPackageCacheProvider.class);
         this.count = count;
         this.minZoom = minZoom;
         this.maxZoom = maxZoom;
