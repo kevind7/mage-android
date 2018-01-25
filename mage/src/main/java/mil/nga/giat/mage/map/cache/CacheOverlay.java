@@ -54,7 +54,7 @@ public abstract class CacheOverlay {
     }
 
     /**
-     * Return the {@link CacheManager#getProviders() provider} type.  This just returns
+     * Return the {@link CacheProvider provider} type.  This just returns
      * the result of this cache overlay's comprising {@link #getCacheName() cache}.
      * @return the {@link CacheProvider} type
      */
