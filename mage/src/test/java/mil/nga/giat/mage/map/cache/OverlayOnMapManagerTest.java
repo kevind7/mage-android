@@ -546,6 +546,12 @@ public class OverlayOnMapManagerTest implements CacheManager.CreateUpdatePermiss
     }
 
     @Test
+    public void forwardsMapClicksToOverlays() {
+
+        fail("unimplemented");
+    }
+
+    @Test
     public void notifiesListenersWhenOverlaysUpdate() {
 
         fail("unimplemented");
