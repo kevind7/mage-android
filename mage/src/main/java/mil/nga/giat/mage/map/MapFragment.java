@@ -346,7 +346,7 @@ public class MapFragment extends Fragment
 		DrawableCompat.setTintList(drawable, AppCompatResources.getColorStateList(getContext(), R.color.map_search_icon));
 		searchButton.setOnClickListener(this);
 
-		overlaysButton = (FloatingActionButton) constraintLayout.findViewById(R.id.map_layer_options);
+		overlaysButton = (FloatingActionButton) constraintLayout.findViewById(R.id.map_layer_button);
 		overlaysButton.setOnClickListener(this);
 
 		newObservationButton = (FloatingActionButton) constraintLayout.findViewById(R.id.new_observation_button);
@@ -782,7 +782,7 @@ public class MapFragment extends Fragment
 			case R.id.map_search_button:
 				onSearch();
 				return;
-			case R.id.map_layer_options:
+			case R.id.map_layer_button:
 			    onOverlaysToggled();
 				return;
 			case R.id.new_observation_button:

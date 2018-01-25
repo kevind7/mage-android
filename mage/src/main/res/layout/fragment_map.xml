@@ -18,38 +18,46 @@
         />
 
     <android.support.design.widget.FloatingActionButton
-        android:id="@+id/zoom_button"
-        android:src="@drawable/ic_my_location_black_24dp"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_margin="12dp"
-        app:theme="@style/AppTheme.AlternateFAB"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintLeft_toLeftOf="parent"
-        />
-
-    <android.support.design.widget.FloatingActionButton
         android:id="@+id/map_search_button"
         android:src="@drawable/ic_search_black_24dp"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_margin="12dp"
+        android:layout_marginTop="12dp"
+        android:layout_marginRight="12dp"
+        android:layout_marginBottom="0dp"
         app:backgroundTint="@color/map_search_button"
         app:theme="@style/AppTheme.AlternateFAB"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintRight_toRightOf="parent"
+        app:fabSize="mini"
         />
 
     <android.support.design.widget.FloatingActionButton
-        android:id="@+id/map_layer_options"
+        android:id="@+id/zoom_button"
+        android:src="@drawable/ic_my_location_black_24dp"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="12dp"
-        android:layout_marginBottom="28dp"
+        android:layout_marginTop="12dp"
+        android:layout_marginRight="12dp"
+        android:layout_marginBottom="0dp"
+        app:theme="@style/AppTheme.AlternateFAB"
+        app:layout_constraintTop_toBottomOf="@id/map_search_button"
+        app:layout_constraintRight_toRightOf="parent"
+        app:fabSize="mini"
+        />
+
+    <android.support.design.widget.FloatingActionButton
+        android:id="@+id/map_layer_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:layout_marginRight="12dp"
+        android:layout_marginBottom="12dp"
         android:src="@drawable/ic_layers_black_24dp"
         app:theme="@style/AppTheme.AlternateFAB"
-        app:layout_constraintBottom_toTopOf="@+id/map_overlays_anchor"
-        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/zoom_button"
+        app:layout_constraintRight_toRightOf="parent"
+        app:fabSize="mini"
         />
 
     <android.support.design.widget.FloatingActionButton
@@ -62,6 +70,7 @@
         app:theme="@style/AppTheme.PrimaryFAB"
         app:layout_constraintBottom_toTopOf="@+id/map_overlays_anchor"
         app:layout_constraintRight_toRightOf="parent"
+        app:fabSize="normal"
         />
 
     <FrameLayout
@@ -74,7 +83,7 @@
         android:background="@drawable/map_search_foreground"
         android:visibility="gone"
         app:layout_constraintTop_toTopOf="@+id/map_search_button"
-        app:layout_constraintLeft_toRightOf="@+id/zoom_button"
+        app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toLeftOf="@+id/map_search_button"
         >
 
