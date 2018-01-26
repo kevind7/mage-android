@@ -21,6 +21,7 @@ import com.vividsolutions.jts.geom.Geometry;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.util.Iterator;
 import java.util.Map;
 
 import mil.nga.giat.mage.map.marker.StaticGeometryCollection;
@@ -49,7 +50,9 @@ public class StaticFeatureLoadTask extends AsyncTask<Layer, Object, Void> {
 
 		Log.d(LOG_NAME, "static feature layer: " + layer.getName() + " is enabled, it has " + layer.getStaticFeatures().size() + " features");
 
-		for (StaticFeature feature : layer.getStaticFeatures()) {
+		Iterator<StaticFeature> features = layer.getStaticFeatures().iterator();
+		while (features.hasNext() && !isCancelled()) {
+			StaticFeature feature = features.next();
 			Geometry geometry = feature.getGeometry();
 			Map<String, StaticFeatureProperty> properties = feature.getPropertiesMap();
 
@@ -61,7 +64,7 @@ public class StaticFeatureLoadTask extends AsyncTask<Layer, Object, Void> {
 				content.append("<div>").append(properties.get("description").getValue()).append("</div>");
 			}
 			String type = geometry.getGeometryType();
-			if (type.equals("Point")) {
+			if ("Point".equals(type)) {
 				MarkerOptions options = new MarkerOptions().position(new LatLng(geometry.getCoordinate().y, geometry.getCoordinate().x)).snippet(content.toString());
 
 				// check to see if there's an icon
@@ -80,8 +83,8 @@ public class StaticFeatureLoadTask extends AsyncTask<Layer, Object, Void> {
 					}
 				}
 
-				publishProgress(new Object[] { options, layerId, content.toString() });
-			} else if (type.equals("LineString")) {
+				publishProgress(options, layerId, content.toString());
+			} else if ("LineString".equals(type)) {
 				PolylineOptions options = new PolylineOptions();
 
 				StaticFeatureProperty property = properties.get("stylelinestylecolorrgb");
@@ -92,8 +95,8 @@ public class StaticFeatureLoadTask extends AsyncTask<Layer, Object, Void> {
 				for (Coordinate coordinate : geometry.getCoordinates()) {
 					options.add(new LatLng(coordinate.y, coordinate.x));
 				}
-				publishProgress(new Object[] { options, layerId, content.toString() });
-			} else if (type.equals("Polygon")) {
+				publishProgress(options, layerId, content.toString());
+			} else if ("Polygon".equals(type)) {
 				PolygonOptions options = new PolygonOptions();
 
 				Integer color = null;
@@ -122,7 +125,7 @@ public class StaticFeatureLoadTask extends AsyncTask<Layer, Object, Void> {
 				for (Coordinate coordinate : geometry.getCoordinates()) {
 					options.add(new LatLng(coordinate.y, coordinate.x));
 				}
-				publishProgress(new Object[] { options, layerId, content.toString() });
+				publishProgress(options, layerId, content.toString());
 			}
 		}
 		return null;
