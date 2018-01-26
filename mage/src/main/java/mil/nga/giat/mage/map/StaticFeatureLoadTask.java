@@ -133,6 +133,9 @@ public class StaticFeatureLoadTask extends AsyncTask<Layer, Object, Void> {
 
 	@Override
 	protected void onProgressUpdate(Object... para) {
+		if (isCancelled()) {
+			return;
+		}
 		Object options = para[0];
 		String layerId = para[1].toString();
 		String content = para[2].toString();
