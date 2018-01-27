@@ -135,6 +135,7 @@ public class MapFragment extends Fragment
 	}
 
 	private MAGE mage;
+	private SharedPreferences preferences;
 	private ViewGroup container;
 	private ViewGroup mapWrapper;
 	private MapView mapView;
@@ -142,7 +143,6 @@ public class MapFragment extends Fragment
 	private View searchLayout;
 	private SearchView searchView;
 	private Location location;
-	private boolean followMe = false;
 	private User currentUser = null;
 	private OnLocationChangedListener locationChangedListener;
 
@@ -160,13 +160,15 @@ public class MapFragment extends Fragment
 	private FloatingActionButton newObservationButton;
 	private LocationService locationService;
 
-	private SharedPreferences preferences;
 
 	private ConstraintLayout constraintLayout;
 	private ConstraintSet layoutOverlaysCollapsed = new ConstraintSet();
 	private ConstraintSet layoutOverlaysExpanded = new ConstraintSet();
-	private boolean overlaysExpanded = false;
 	private OverlayOnMapManager mapOverlayManager;
+
+	private boolean layersPanelVisible = false;
+	private boolean searchInputVisible = false;
+	private boolean followMe = false;
 
 	@Override
 	public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -193,7 +195,7 @@ public class MapFragment extends Fragment
 	public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
 		this.container = new FrameLayout(getContext());
 		this.container.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-		loadLayoutToContainer(inflater, savedInstanceState);
+		loadLayoutToContainer(inflater);
 		return this.container;
 	}
 
@@ -227,7 +229,7 @@ public class MapFragment extends Fragment
 
 		cleanUpForLayoutChange();
 		LayoutInflater inflater = LayoutInflater.from(getContext());
-		loadLayoutToContainer(inflater, null);
+		loadLayoutToContainer(inflater);
 	}
 
 	@Override
@@ -307,8 +309,6 @@ public class MapFragment extends Fragment
 	@Override
 	public void onSaveInstanceState(Bundle outState) {
 		super.onSaveInstanceState(outState);
-		mapView.onSaveInstanceState(outState);
-		outState.putBoolean(STATE_OVERLAYS_EXPANDED, overlaysExpanded);
 	}
 
 	@Override
@@ -321,6 +321,8 @@ public class MapFragment extends Fragment
 	}
 
 	private void cleanUpForLayoutChange() {
+	    searchInputVisible = isSearchInputVisible();
+	    layersPanelVisible = isLayersPanelVisible();
 		container.removeAllViews();
 		mapWrapper.removeAllViews();
 		zoomToLocationButton.setOnClickListener(null);
@@ -330,7 +332,7 @@ public class MapFragment extends Fragment
 		newObservationButton.setOnClickListener(null);
 	}
 
-	private View loadLayoutToContainer(LayoutInflater inflater, Bundle savedInstanceState) {
+	private View loadLayoutToContainer(LayoutInflater inflater) {
 		constraintLayout = (ConstraintLayout) inflater.inflate(R.layout.fragment_map, container, false);
 		layoutOverlaysCollapsed.clone(constraintLayout);
 		layoutOverlaysExpanded.load(getContext(), R.layout.fragment_map_expanded_layers_panel);
@@ -361,15 +363,13 @@ public class MapFragment extends Fragment
 		mapWrapper = (FrameLayout) constraintLayout.findViewById(R.id.map_wrapper);
 		mapWrapper.addView(mapView);
 
-		// TODO: is saved instance state associated with the fragment alone, or with the parent activity?
-		// if the latter, how to propagate the saved state to the child fragment?  want the child fragment
-		// to inflate its ui again for configuration changes, but this fragment is retained across config
-		// chnages, so how does that affect lifecycle?
-		if (savedInstanceState != null) {
-        	overlaysExpanded = savedInstanceState.getBoolean(STATE_OVERLAYS_EXPANDED, false);
+		if (layersPanelVisible) {
+			showLayersPanel();
 		}
+		else if (searchInputVisible) {
+		    showSearchInput();
+        }
 
-		reconcileOverlaysPanelState();
 		container.addView(constraintLayout);
 		return container;
 	}
@@ -482,42 +482,62 @@ public class MapFragment extends Fragment
 		map.animateCamera(cameraUpdate);
 	}
 
-	private void onSearch() {
-		boolean isVisible = searchLayout.getVisibility() == View.VISIBLE;
-		searchLayout.setVisibility(isVisible ? View.GONE : View.VISIBLE);
-		searchButton.setSelected(!isVisible);
-
-		if (isVisible) {
-			searchView.clearFocus();
-		} else {
-			searchView.requestFocus();
-			InputMethodManager inputMethodManager = (InputMethodManager) getActivity().getSystemService(Activity.INPUT_METHOD_SERVICE);
-			inputMethodManager.toggleSoftInput(InputMethodManager.SHOW_IMPLICIT, 0);
+	private void onSearchToggled() {
+		hideLayersPanel();
+		if (isSearchInputVisible()) {
+			hideSearchInput();
+		}
+		else {
+			showSearchInput();
 		}
 	}
 
-	private void onOverlaysToggled() {
-		overlaysExpanded = !overlaysExpanded;
-		reconcileOverlaysPanelState();
-    }
-
-	private void reconcileOverlaysPanelState() {
-		// TODO: animate layout change with ObjectAnimator on map padding
-		// instead of changing the map view height
-		FragmentManager fragmentManager = getChildFragmentManager();
-//		TransitionManager.beginDelayedTransition(constraintLayout);
-		if (overlaysExpanded) {
-			layoutOverlaysExpanded.applyTo(constraintLayout);
-			MapOverlaysFragment overlays = (MapOverlaysFragment) Fragment.instantiate(getActivity(), MapOverlaysFragment.class.getName());
-			overlays.setOverlayManager(mapOverlayManager);
-			fragmentManager.beginTransaction().replace(R.id.map_overlays_container, overlays).commit();
+	private void onLayersPanelToggled() {
+		if (isLayersPanelVisible()) {
+			hideLayersPanel();
 		}
 		else {
-			layoutOverlaysCollapsed.applyTo(constraintLayout);
-			Fragment overlays = fragmentManager.findFragmentById(R.id.map_overlays_container);
-			if (overlays != null) {
-				fragmentManager.beginTransaction().remove(overlays).commit();
-			}
+			showLayersPanel();
+		}
+    }
+
+    private boolean isSearchInputVisible() {
+		return searchLayout.getVisibility() == View.VISIBLE;
+	}
+
+    private boolean isLayersPanelVisible() {
+		return getChildFragmentManager().findFragmentById(R.id.map_overlays_container) != null;
+	}
+
+    private void showSearchInput() {
+		hideLayersPanel();
+		searchLayout.setVisibility(View.VISIBLE);
+		searchView.requestFocus();
+		InputMethodManager inputMethodManager = (InputMethodManager) getActivity().getSystemService(Activity.INPUT_METHOD_SERVICE);
+		inputMethodManager.toggleSoftInput(InputMethodManager.SHOW_IMPLICIT, 0);
+	}
+
+    private void hideSearchInput() {
+		searchView.clearFocus();
+		searchLayout.setVisibility(View.GONE);
+	}
+
+    private void showLayersPanel() {
+		hideSearchInput();
+		// TODO: animate layout change with ObjectAnimator on map padding
+		layoutOverlaysExpanded.applyTo(constraintLayout);
+		MapOverlaysFragment overlays = (MapOverlaysFragment) Fragment.instantiate(getActivity(), MapOverlaysFragment.class.getName());
+		overlays.setOverlayManager(mapOverlayManager);
+		FragmentManager fragmentManager = getChildFragmentManager();
+		fragmentManager.beginTransaction().replace(R.id.map_overlays_container, overlays).commit();
+	}
+
+	private void hideLayersPanel() {
+		layoutOverlaysCollapsed.applyTo(constraintLayout);
+		FragmentManager fragmentManager = getChildFragmentManager();
+		Fragment overlays = fragmentManager.findFragmentById(R.id.map_overlays_container);
+		if (overlays != null) {
+			fragmentManager.beginTransaction().remove(overlays).commit();
 		}
 	}
 
@@ -780,10 +800,10 @@ public class MapFragment extends Fragment
 				onZoom();
 				return;
 			case R.id.map_search_button:
-				onSearch();
+				onSearchToggled();
 				return;
 			case R.id.map_layer_button:
-			    onOverlaysToggled();
+			    onLayersPanelToggled();
 				return;
 			case R.id.new_observation_button:
 				onNewObservation();
@@ -922,7 +942,6 @@ public class MapFragment extends Fragment
 	@Override
 	public void onStaticFeaturesCreated(final Layer layer) {
 		getActivity().runOnUiThread(new Runnable() {
-
 			@Override
 			public void run() {
 				onStaticFeatureLayer(layer);
