@@ -9,6 +9,9 @@ import android.widget.Toast;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.MapView;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
+import com.google.android.gms.maps.model.Polygon;
+import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.TileOverlay;
 import com.google.android.gms.maps.model.TileOverlayOptions;
 
@@ -33,6 +36,13 @@ import mil.nga.geopackage.features.user.FeatureRow;
 import mil.nga.geopackage.geom.GeoPackageGeometryData;
 import mil.nga.geopackage.geom.map.GoogleMapShape;
 import mil.nga.geopackage.geom.map.GoogleMapShapeConverter;
+import mil.nga.geopackage.geom.map.MultiMarker;
+import mil.nga.geopackage.geom.map.MultiPolygon;
+import mil.nga.geopackage.geom.map.MultiPolygonMarkers;
+import mil.nga.geopackage.geom.map.MultiPolyline;
+import mil.nga.geopackage.geom.map.MultiPolylineMarkers;
+import mil.nga.geopackage.geom.map.PolygonMarkers;
+import mil.nga.geopackage.geom.map.PolylineMarkers;
 import mil.nga.geopackage.projection.Projection;
 import mil.nga.geopackage.tiles.features.FeatureTiles;
 import mil.nga.geopackage.tiles.features.MapFeatureTiles;
@@ -278,9 +288,8 @@ public class GeoPackageCacheProvider implements CacheProvider {
         }
 
         @Override
-        public void addToMapWithVisibility(boolean visible) {
+        public void addToMap() {
             if (tileOverlay == null) {
-                options.visible(visible);
                 tileOverlay = map.addTileOverlay(options);
             }
         }
@@ -299,6 +308,7 @@ public class GeoPackageCacheProvider implements CacheProvider {
 
         @Override
         public void show() {
+            options.visible(true);
             if (tileOverlay != null) {
                 tileOverlay.setVisible(true);
             }
@@ -306,8 +316,17 @@ public class GeoPackageCacheProvider implements CacheProvider {
 
         @Override
         public void hide() {
+            options.visible(false);
             if (tileOverlay != null) {
                 tileOverlay.setVisible(false);
+            }
+        }
+
+        @Override
+        protected void setZIndex(int z) {
+            options.zIndex(z);
+            if (tileOverlay != null) {
+                tileOverlay.setZIndex(z);
             }
         }
 
@@ -318,7 +337,7 @@ public class GeoPackageCacheProvider implements CacheProvider {
 
         @Override
         public boolean isVisible() {
-            return tileOverlay != null && tileOverlay.isVisible();
+            return tileOverlay == null ? options.isVisible() : tileOverlay.isVisible();
         }
 
         @Override
@@ -369,8 +388,9 @@ public class GeoPackageCacheProvider implements CacheProvider {
         private final LongSparseArray<GoogleMapShape> shapeOptions;
         private final LongSparseArray<GoogleMapShape> shapesOnMap;
         private TileOverlay overlay;
-        private boolean visible;
         private boolean onMap;
+        private boolean visible;
+        private int zIndex;
 
         FeatureTableOnMap(OverlayOnMapManager manager, List<TileTableOnMap> linkedTiles, TileOverlayOptions tileOptions, FeatureOverlayQuery query) {
             manager.super();
@@ -393,20 +413,26 @@ public class GeoPackageCacheProvider implements CacheProvider {
         }
 
         @Override
-        protected void addToMapWithVisibility(boolean visible) {
-            for (TileTableOnMap linkedTileTable : linkedTiles){
-                linkedTileTable.addToMapWithVisibility(visible);
+        protected void addToMap() {
+            for (TileTableOnMap linkedTileTable : linkedTiles) {
+                if (isVisible()) {
+                    linkedTileTable.show();
+                }
+                linkedTileTable.setZIndex(zIndex);
+                linkedTileTable.addToMap();
+
             }
             if (tileOptions != null) {
                 if (overlay == null) {
                     tileOptions.visible(visible);
+                    tileOptions.zIndex(zIndex);
                     overlay = map.addTileOverlay(tileOptions);
                 }
             }
             else if (visible) {
+                // TODO: z-index when GoogleMapShape supports it
                 addShapes();
             }
-            this.visible = visible;
             onMap = true;
         }
 
@@ -420,7 +446,6 @@ public class GeoPackageCacheProvider implements CacheProvider {
             for (TileTableOnMap linkedTileTable : linkedTiles){
                 linkedTileTable.removeFromMap();
             }
-            visible = false;
             onMap = false;
         }
 
@@ -462,6 +487,18 @@ public class GeoPackageCacheProvider implements CacheProvider {
                 removeShapes();
             }
             visible = false;
+        }
+
+        @Override
+        protected void setZIndex(int z) {
+            zIndex = z;
+            for (TileTableOnMap linkedTileTable : linkedTiles) {
+                linkedTileTable.setZIndex(z);
+            }
+            if (overlay != null) {
+                overlay.setZIndex(z);
+            }
+            // TODO: GoogleMapShape needs z-index support
         }
 
         @Override

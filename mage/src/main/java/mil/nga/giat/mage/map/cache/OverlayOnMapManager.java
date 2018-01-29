@@ -13,7 +13,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 
 @MainThread
 public class OverlayOnMapManager implements CacheManager.CacheOverlaysUpdateListener {
@@ -34,9 +33,8 @@ public class OverlayOnMapManager implements CacheManager.CacheOverlaysUpdateList
          * Add this overlay's objects to the map, e.g. {@link com.google.android.gms.maps.model.TileOverlay}s,
          * {@link com.google.android.gms.maps.model.Marker}s, {@link com.google.android.gms.maps.model.Polygon}s, etc.
          *
-         * @param visible whether the map objects should be visible when added to the map
          */
-        abstract protected void addToMapWithVisibility(boolean visible);
+        abstract protected void addToMap();
 
         /**
          * Remove this overlay's objects visible and hidden objects from the map.
@@ -44,6 +42,7 @@ public class OverlayOnMapManager implements CacheManager.CacheOverlaysUpdateList
         abstract protected void removeFromMap();
         abstract protected void show();
         abstract protected void hide();
+        abstract protected void setZIndex(int z);
 
         /**
          * TODO: change to CacheOverlay.getBoundingBox() instead so OverlayOnMapManager can do the zoom
@@ -51,7 +50,7 @@ public class OverlayOnMapManager implements CacheManager.CacheOverlaysUpdateList
         abstract protected void zoomMapToBoundingBox();
 
         /**
-         * Return true if this overlay's {@link #addToMapWithVisibility(boolean) map objects} have been
+         * Return true if this overlay's {@link #addToMap() map objects} have been
          * created and added to the map, regardless of visibility.
          *
          * @return
@@ -159,6 +158,10 @@ public class OverlayOnMapManager implements CacheManager.CacheOverlaysUpdateList
         return map;
     }
 
+    /**
+     *
+     * @return
+     */
     public List<CacheOverlay> getOverlays() {
         return overlayOrder;
     }
@@ -193,6 +196,10 @@ public class OverlayOnMapManager implements CacheManager.CacheOverlaysUpdateList
         addOverlayToMap(cacheOverlay, true);
         OverlayOnMap onMap = overlaysOnMap.get(cacheOverlay);
         onMap.zoomMapToBoundingBox();
+    }
+
+    public void changeZOrder(int fromPosition, int toPosition) {
+
     }
 
     public void dispose() {
@@ -244,7 +251,7 @@ public class OverlayOnMapManager implements CacheManager.CacheOverlaysUpdateList
             onMap.show();
         }
         else {
-            onMap.addToMapWithVisibility(visible);
+            onMap.addToMap();
         }
     }
 }

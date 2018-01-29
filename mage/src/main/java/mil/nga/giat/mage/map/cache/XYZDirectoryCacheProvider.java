@@ -1,6 +1,5 @@
 package mil.nga.giat.mage.map.cache;
 
-import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
 import com.google.android.gms.maps.GoogleMap;
@@ -23,19 +22,19 @@ public class XYZDirectoryCacheProvider implements CacheProvider {
 
         private final GoogleMap map;
         private final XYZDirectoryCacheOverlay cache;
+        private final TileOverlayOptions overlayOptions;
         private TileOverlay overlay;
 
         OnMap(OverlayOnMapManager manager, XYZDirectoryCacheOverlay cache) {
             manager.super();
             this.map = manager.getMap();
             this.cache = cache;
+            overlayOptions = new TileOverlayOptions();
+            overlayOptions.tileProvider(new FileSystemTileProvider(256, 256, cache.getDirectory().getAbsolutePath()));
         }
 
         @Override
-        public void addToMapWithVisibility(boolean visibility) {
-            TileProvider tileProvider = new FileSystemTileProvider(256, 256, cache.getDirectory().getAbsolutePath());
-            TileOverlayOptions overlayOptions = new TileOverlayOptions().visible(visibility);
-            overlayOptions.tileProvider(tileProvider);
+        public void addToMap() {
             overlay = map.addTileOverlay(overlayOptions);
         }
 
@@ -52,6 +51,7 @@ public class XYZDirectoryCacheProvider implements CacheProvider {
 
         @Override
         public void show() {
+            overlayOptions.visible(true);
             if (overlay != null) {
                 overlay.setVisible(true);
             }
@@ -59,8 +59,17 @@ public class XYZDirectoryCacheProvider implements CacheProvider {
 
         @Override
         public void hide() {
+            overlayOptions.visible(false);
             if (overlay != null) {
                 overlay.setVisible(false);
+            }
+        }
+
+        @Override
+        protected void setZIndex(int z) {
+            overlayOptions.zIndex(z);
+            if (overlay != null) {
+                overlay.setZIndex(z);
             }
         }
 
@@ -77,7 +86,7 @@ public class XYZDirectoryCacheProvider implements CacheProvider {
 
         @Override
         public boolean isVisible() {
-            return overlay.isVisible();
+            return overlay == null ? overlayOptions.isVisible() : overlay.isVisible();
         }
 
         @Override
