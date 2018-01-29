@@ -29,13 +29,13 @@ import mil.nga.giat.mage.sdk.datastore.layer.Layer;
 import mil.nga.giat.mage.sdk.datastore.staticfeature.StaticFeature;
 import mil.nga.giat.mage.sdk.datastore.staticfeature.StaticFeatureProperty;
 
-public class StaticFeatureLoadTask extends AsyncTask<Layer, Object, Void> {
+public class StaticFeatureLoadTask extends AsyncTask<Layer, Object, Layer> {
 
 	private static final String LOG_NAME = StaticFeatureLoadTask.class.getName();
 
+	private Context context;
 	private StaticGeometryCollection staticGeometryCollection;
 	private GoogleMap map;
-	private Context context;
 
 	public StaticFeatureLoadTask(Context context, StaticGeometryCollection staticGeometryCollection, GoogleMap map) {
 		this.context = context;
@@ -44,7 +44,7 @@ public class StaticFeatureLoadTask extends AsyncTask<Layer, Object, Void> {
 	}
 
 	@Override
-	protected Void doInBackground(Layer... layers) {
+	protected Layer doInBackground(Layer... layers) {
 		Layer layer = layers[0];
 		String layerId = layer.getId().toString();
 
@@ -128,7 +128,7 @@ public class StaticFeatureLoadTask extends AsyncTask<Layer, Object, Void> {
 				publishProgress(options, layerId, content.toString());
 			}
 		}
-		return null;
+		return layer;
 	}
 
 	@Override
@@ -149,5 +149,17 @@ public class StaticFeatureLoadTask extends AsyncTask<Layer, Object, Void> {
 			Polygon p = map.addPolygon((PolygonOptions) options);
 			staticGeometryCollection.addPolygon(layerId, p, content);
 		}
+	}
+
+	@Override
+	protected void onCancelled(Layer result) {
+		onPostExecute(result);
+	}
+
+	@Override
+	protected void onPostExecute(Layer result) {
+		staticGeometryCollection = null;
+		context = null;
+		map = null;
 	}
 }
