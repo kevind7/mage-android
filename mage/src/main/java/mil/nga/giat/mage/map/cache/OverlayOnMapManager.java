@@ -19,6 +19,12 @@ import java.util.TreeMap;
 public class OverlayOnMapManager implements CacheManager.CacheOverlaysUpdateListener {
 
     public interface OverlayOnMapListener {
+
+        /**
+         * Notify the listener that the {@link CacheManager} has updated the {@link #getOverlays() cache list}.
+         * {@link OverlayOnMapManager} will not invoke this method as result of its own on-map interactions,
+         * such as adding, removing, showing, and hiding overlays.
+         */
         void overlaysChanged();
     }
 
