@@ -26,7 +26,7 @@ import mil.nga.giat.mage.map.cache.OverlayOnMapManager;
 
 import static android.support.v7.widget.RecyclerView.NO_ID;
 
-public class MapOverlaysListFragment extends Fragment implements OverlayOnMapManager.OverlayOnMapListener {
+public class MapOverlaysListFragment extends Fragment implements OverlayOnMapManager.OverlayOnMapListener, DragListView.DragListListener {
 
     private class OverlayItemAdapter extends DragItemAdapter<CacheOverlay, OverlayItemViewHolder> {
 
@@ -121,6 +121,7 @@ public class MapOverlaysListFragment extends Fragment implements OverlayOnMapMan
         overlaysListView.getRecyclerView().setVerticalScrollBarEnabled(true);
         overlaysListView.setLayoutManager(new LinearLayoutManager(getContext()));
         overlaysListView.setAdapter(new OverlayItemAdapter(), true);
+        overlaysListView.setDragListListener(this);
 //        overlaysListView.setScrollingEnabled(false);
         syncItemList();
         return root;
@@ -140,6 +141,23 @@ public class MapOverlaysListFragment extends Fragment implements OverlayOnMapMan
     @Override
     public void overlaysChanged() {
         syncItemList();
+    }
+
+    @Override
+    public void onItemDragStarted(int position) {
+
+    }
+
+    @Override
+    public void onItemDragging(int itemPosition, float x, float y) {
+
+    }
+
+    @Override
+    public void onItemDragEnded(int fromPosition, int toPosition) {
+        if (fromPosition != toPosition) {
+            overlayManager.changeZOrder(fromPosition, toPosition);
+        }
     }
 
     private void syncItemList() {

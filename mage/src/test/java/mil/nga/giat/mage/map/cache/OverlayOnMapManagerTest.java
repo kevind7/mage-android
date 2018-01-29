@@ -6,6 +6,8 @@ import com.google.android.gms.maps.model.LatLng;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mockito;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 
 import java.io.File;
 import java.util.Arrays;
@@ -24,7 +26,7 @@ import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -45,9 +47,8 @@ public class OverlayOnMapManagerTest implements CacheManager.CreateUpdatePermiss
         }
 
         @Override
-        protected void addToMapWithVisibility(boolean x) {
+        protected void addToMap() {
             onMap = true;
-            visible = x;
         }
 
         @Override
@@ -63,6 +64,11 @@ public class OverlayOnMapManagerTest implements CacheManager.CreateUpdatePermiss
         @Override
         protected void hide() {
             visible = false;
+        }
+
+        @Override
+        protected void setZIndex(int z) {
+
         }
 
         @Override
@@ -102,7 +108,7 @@ public class OverlayOnMapManagerTest implements CacheManager.CreateUpdatePermiss
 
         OverlayOnMapManager.OverlayOnMap onMap(boolean x) {
             if (x) {
-                addToMapWithVisibility(this.isVisible());
+                addToMap();
             }
             else {
                 removeFromMap();
@@ -329,7 +335,7 @@ public class OverlayOnMapManagerTest implements CacheManager.CreateUpdatePermiss
         overlayManager.showOverlay(overlay1);
 
         verify(provider1).createOverlayOnMapFromCache(overlay1, overlayManager);
-        verify(onMap).addToMapWithVisibility(true);
+        verify(onMap).addToMap();
 
         overlay1 = new CacheOverlayTest.TestCacheOverlay1(overlay1.getOverlayName(), overlay1.getCacheName(), overlay1.getCacheType());
         cache = new MapCache(cache.getName(), cache.getType(), null, setOf(overlay1));
@@ -344,7 +350,7 @@ public class OverlayOnMapManagerTest implements CacheManager.CreateUpdatePermiss
 
         verify(onMap).removeFromMap();
         verify(provider1).createOverlayOnMapFromCache(Mockito.same(overlay1), Mockito.same(overlayManager));
-        verify(onMapUpdated).addToMapWithVisibility(true);
+        verify(onMapUpdated).addToMap();
     }
 
     @Test
@@ -367,7 +373,7 @@ public class OverlayOnMapManagerTest implements CacheManager.CreateUpdatePermiss
         overlayManager.showOverlay(overlay1);
 
         verify(provider1).createOverlayOnMapFromCache(overlay1, overlayManager);
-        verify(onMap).addToMapWithVisibility(true);
+        verify(onMap).addToMap();
 
         overlay1 = new CacheOverlayTest.TestCacheOverlay1(overlay1.getOverlayName(), overlay1.getCacheName(), overlay1.getCacheType());
         cache = new MapCache(cache.getName(), cache.getType(), null, setOf(overlay1));
@@ -382,7 +388,7 @@ public class OverlayOnMapManagerTest implements CacheManager.CreateUpdatePermiss
 
         verify(onMap).removeFromMap();
         verify(provider1, never()).createOverlayOnMapFromCache(Mockito.same(overlay1), Mockito.same(overlayManager));
-        verify(onMapUpdated, never()).addToMapWithVisibility(anyBoolean());
+        verify(onMapUpdated, never()).addToMap();
     }
 
     @Test
@@ -405,7 +411,7 @@ public class OverlayOnMapManagerTest implements CacheManager.CreateUpdatePermiss
         overlayManager.showOverlay(overlay1);
 
         verify(provider1).createOverlayOnMapFromCache(overlay1, overlayManager);
-        verify(onMap).addToMapWithVisibility(true);
+        verify(onMap).addToMap();
 
         CacheOverlay overlay2 = new CacheOverlayTest.TestCacheOverlay1("overlay 2", cache.getName(), cache.getType());
         cache = new MapCache(cache.getName(), cache.getType(), null, setOf(overlay1, overlay2));
@@ -417,7 +423,7 @@ public class OverlayOnMapManagerTest implements CacheManager.CreateUpdatePermiss
 
         verify(onMap, never()).removeFromMap();
         verify(provider1, times(1)).createOverlayOnMapFromCache(Mockito.same(overlay1), Mockito.same(overlayManager));
-        verify(onMapUpdated, never()).addToMapWithVisibility(anyBoolean());
+        verify(onMapUpdated, never()).addToMap();
     }
 
     @Test
@@ -440,7 +446,7 @@ public class OverlayOnMapManagerTest implements CacheManager.CreateUpdatePermiss
         overlayManager.showOverlay(overlay1);
 
         verify(provider1).createOverlayOnMapFromCache(overlay1, overlayManager);
-        verify(onMap).addToMapWithVisibility(true);
+        verify(onMap).addToMap();
 
         cache = new MapCache(cache.getName(), cache.getType(), null, setOf(overlay2));
         CacheManager.CacheOverlayUpdate update = cacheManager.new CacheOverlayUpdate(this, Collections.<MapCache>emptySet(), setOf(cache), Collections.<MapCache>emptySet());
@@ -470,7 +476,7 @@ public class OverlayOnMapManagerTest implements CacheManager.CreateUpdatePermiss
         overlayManager.showOverlay(overlay1);
 
         verify(provider1).createOverlayOnMapFromCache(overlay1, overlayManager);
-        verify(onMap).addToMapWithVisibility(true);
+        verify(onMap).addToMap();
 
         CacheManager.CacheOverlayUpdate update = cacheManager.new CacheOverlayUpdate(this, Collections.<MapCache>emptySet(), Collections.<MapCache>emptySet(), setOf(cache));
 
@@ -504,14 +510,14 @@ public class OverlayOnMapManagerTest implements CacheManager.CreateUpdatePermiss
 
         verify(provider1).createOverlayOnMapFromCache(overlay1, overlayManager);
         verify(provider1, never()).createOverlayOnMapFromCache(overlay2, overlayManager);
-        verify(onMap1).addToMapWithVisibility(true);
+        verify(onMap1).addToMap();
 
         overlayManager.showOverlay(overlay2);
 
         verify(provider1).createOverlayOnMapFromCache(overlay1, overlayManager);
         verify(provider1).createOverlayOnMapFromCache(overlay2, overlayManager);
-        verify(onMap1).addToMapWithVisibility(true);
-        verify(onMap2).addToMapWithVisibility(true);
+        verify(onMap1).addToMap();
+        verify(onMap2).addToMap();
 
         when(onMap2.isVisible()).thenReturn(true);
 
@@ -541,6 +547,30 @@ public class OverlayOnMapManagerTest implements CacheManager.CreateUpdatePermiss
 
     @Test
     public void updatesZOrder() {
+
+        Set<CacheOverlay> overlays = setOf((CacheOverlay)
+            new CacheOverlayTest.TestCacheOverlay1("o0", "c1", provider1.getClass()),
+            new CacheOverlayTest.TestCacheOverlay1("o1", "c1", provider1.getClass()),
+            new CacheOverlayTest.TestCacheOverlay1("o2", "c1", provider1.getClass()),
+            new CacheOverlayTest.TestCacheOverlay1("o3", "c1", provider1.getClass())
+        );
+        MapCache cache = new MapCache("c1", provider1.getClass(), null, overlays);
+        when(cacheManager.getCaches()).thenReturn(setOf(cache));
+        final OverlayOnMapManager overlayManager = new OverlayOnMapManager(cacheManager, providers, null);
+
+
+
+        when(provider1.createOverlayOnMapFromCache(any(CacheOverlay.class), same(overlayManager))).then(new Answer<OverlayOnMapManager.OverlayOnMap>() {
+            @Override
+            public OverlayOnMapManager.OverlayOnMap answer(InvocationOnMock invocation) throws Throwable {
+                OverlayOnMapManager.OverlayOnMap onMap = mockOverlayOnMap(overlayManager);
+                return null;
+            }
+        });
+        overlayManager.changeZOrder(0, 1);
+
+        assertThat(overlayManager.getOverlays().get(0).getOverlayName(), is("o1"));
+        assertThat(overlayManager.getOverlays().get(1).getOverlayName(), is("o2"));
 
         fail("unimplemented");
     }
