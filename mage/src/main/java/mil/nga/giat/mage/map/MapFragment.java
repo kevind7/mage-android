@@ -3,6 +3,7 @@ package mil.nga.giat.mage.map;
 import android.Manifest;
 import android.app.Activity;
 import android.app.Dialog;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -67,7 +68,9 @@ import java.util.Calendar;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -134,6 +137,25 @@ public class MapFragment extends Fragment
 		}
 	}
 
+	private class CleanlyStaticFeatureLoadTask extends StaticFeatureLoadTask {
+
+		public CleanlyStaticFeatureLoadTask(Context context, StaticGeometryCollection staticGeometryCollection, GoogleMap map) {
+			super(context, staticGeometryCollection, map);
+		}
+
+		@Override
+		protected Layer doInBackground(Layer... layers) {
+			loadingLayers.put(layers[0], this);
+			return super.doInBackground(layers);
+		}
+
+		@Override
+		protected void onPostExecute(Layer result) {
+			super.onPostExecute(result);
+			loadingLayers.remove(result);
+		}
+	}
+
 	private MAGE mage;
 	private SharedPreferences preferences;
 	private ViewGroup container;
@@ -153,13 +175,13 @@ public class MapFragment extends Fragment
 	private List<Marker> searchMarkers = new ArrayList<>();
 	private RefreshMarkersRunnable refreshLocationsTask;
 	private RefreshMarkersRunnable refreshHistoricLocationsTask;
+	private Map<Layer, CleanlyStaticFeatureLoadTask> loadingLayers = new HashMap<>();
 
 	private FloatingActionButton searchButton;
 	private FloatingActionButton zoomToLocationButton;
 	private FloatingActionButton overlaysButton;
 	private FloatingActionButton newObservationButton;
 	private LocationService locationService;
-
 
 	private ConstraintLayout constraintLayout;
 	private ConstraintSet layoutOverlaysCollapsed = new ConstraintSet();
@@ -268,6 +290,12 @@ public class MapFragment extends Fragment
 	@Override
 	public void onDestroyView() {
 		super.onDestroyView();
+
+		Iterator<CleanlyStaticFeatureLoadTask> loadingLayerIter = loadingLayers.values().iterator();
+		while (loadingLayerIter.hasNext()) {
+			loadingLayerIter.next().cancel(false);
+			loadingLayerIter.remove();
+		}
 
 		if (observations != null) {
 			observations.clear();
@@ -954,8 +982,9 @@ public class MapFragment extends Fragment
 
 		// The user has asked for this feature layer
 		String layerId = layer.getId().toString();
-		if (layers.contains(layerId) && layer.isLoaded()) {
-			new StaticFeatureLoadTask(mage, staticGeometryCollection, map).executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, layer);
+		if (layers.contains(layerId) && layer.isLoaded() && !loadingLayers.containsKey(layer)) {
+			CleanlyStaticFeatureLoadTask loadLayer = new CleanlyStaticFeatureLoadTask(mage, staticGeometryCollection, map);
+			loadLayer.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, layer);
 		}
 	}
 
