@@ -341,10 +341,11 @@ public class GeoPackageCacheProvider implements CacheProvider {
         }
 
         void clearFeatureOverlayQueries(){
-            for (Iterator<FeatureOverlayQuery> queryIter = featureOverlayQueries.iterator(); queryIter.hasNext(); queryIter.next()) {
+            Iterator<FeatureOverlayQuery> queryIter = featureOverlayQueries.iterator();
+            while (queryIter.hasNext()) {
                 FeatureOverlayQuery query = queryIter.next();
-                query.close();
                 queryIter.remove();
+                query.close();
             }
         }
 
