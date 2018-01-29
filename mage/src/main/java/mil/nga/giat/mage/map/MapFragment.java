@@ -511,7 +511,6 @@ public class MapFragment extends Fragment
 	}
 
 	private void onSearchToggled() {
-		hideLayersPanel();
 		if (isSearchInputVisible()) {
 			hideSearchInput();
 		}
@@ -546,6 +545,7 @@ public class MapFragment extends Fragment
 	}
 
     private void hideSearchInput() {
+	    hideKeyboard();
 		searchView.clearFocus();
 		searchLayout.setVisibility(View.GONE);
 	}
