@@ -7,13 +7,17 @@ import android.location.Location
 import android.os.AsyncTask
 import android.os.BatteryManager
 import android.util.Log
+import com.google.gson.JsonObject
+import mil.nga.giat.mage.error.ErrorResource
 import mil.nga.giat.mage.sdk.datastore.location.LocationHelper
 import mil.nga.giat.mage.sdk.datastore.location.LocationProperty
 import mil.nga.giat.mage.sdk.datastore.user.User
 import mil.nga.giat.mage.sdk.datastore.user.UserHelper
-import mil.nga.giat.mage.sdk.exceptions.LocationException
 import mil.nga.giat.mage.sdk.exceptions.UserException
 import mil.nga.wkb.geom.Point
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 import java.util.*
 
 class LocationSaveTask(val context: Context, private val listener: LocationDatabaseListener) : AsyncTask<Location, Void, Location>() {
@@ -66,24 +70,55 @@ class LocationSaveTask(val context: Context, private val listener: LocationDatab
                 currentUser = UserHelper.getInstance(context).readCurrentUser()
             } catch (e: UserException) {
                 Log.e(LOG_NAME, "Could not get current User!")
+
+                val errorResource = ErrorResource(context)
+                errorResource.createError("Exception getting user", e, object: Callback<JsonObject> {
+                    override fun onFailure(call: Call<JsonObject>, t: Throwable) {
+                        throw t;
+                    }
+
+                    override fun onResponse(call: Call<JsonObject>, response: Response<JsonObject>) {
+                        throw e;
+                    }
+                })
             }
 
-            // build location
-            val loc = mil.nga.giat.mage.sdk.datastore.location.Location(
-                    "Feature",
-                    currentUser,
-                    locationProperties,
-                    Point(location.longitude, location.latitude),
-                    Date(location.time),
-                    currentUser!!.currentEvent)
+            if (currentUser == null) {
+                val errorResource = ErrorResource(context)
+                val e = RuntimeException("No current user exception");
+                errorResource.createError("No current user", e, object: Callback<JsonObject> {
+                    override fun onFailure(call: Call<JsonObject>, t: Throwable) {
+                    }
 
-            // save the location
+                    override fun onResponse(call: Call<JsonObject>, response: Response<JsonObject>) {
+                    }
+                })
+            }
+
             try {
-                locationHelper.create(loc)
-            } catch (le: LocationException) {
-                Log.e(LOG_NAME, "Unable to save current location locally!", le)
-            }
+                // build location
+                val loc = mil.nga.giat.mage.sdk.datastore.location.Location(
+                        "Feature",
+                        currentUser,
+                        locationProperties,
+                        Point(location.longitude, location.latitude),
+                        Date(location.time),
+                        currentUser!!.currentEvent)
 
+                // save the location
+                locationHelper.create(loc)
+            } catch (e: Exception) {
+                val errorResource = ErrorResource(context)
+                errorResource.createError("Error building and saving location", e, object: Callback<JsonObject> {
+                    override fun onFailure(call: Call<JsonObject>, t: Throwable) {
+                        throw t;
+                    }
+
+                    override fun onResponse(call: Call<JsonObject>, response: Response<JsonObject>) {
+                        throw e;
+                    }
+                })
+            }
         }
     }
 
