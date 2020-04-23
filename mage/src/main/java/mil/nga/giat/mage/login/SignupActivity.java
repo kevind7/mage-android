@@ -1,7 +1,5 @@
 package mil.nga.giat.mage.login;
 
-import android.app.Activity;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
@@ -15,7 +13,6 @@ import android.util.Log;
 import android.util.Patterns;
 import android.view.KeyEvent;
 import android.view.View;
-import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
@@ -43,11 +40,6 @@ import mil.nga.giat.mage.sdk.preferences.PreferenceHelper;
  * @author wiedemanns
  */
 public class SignupActivity extends AppCompatActivity implements AccountDelegate {
-
-	public static final int EXTRA_OAUTH_RESULT = 1;
-
-	public static final String EXTRA_OAUTH_ERROR = "OAUTH_ERROR";
-	public static final String EXTRA_OAUTH_ERROR_MESSAGE = "OAUTH_ERROR_MESSAGE";
 
 	private static final String LOG_NAME = SignupActivity.class.getName();
 
@@ -100,25 +92,25 @@ public class SignupActivity extends AppCompatActivity implements AccountDelegate
 
 		setContentView(R.layout.activity_signup);
 
-		TextView appName = (TextView) findViewById(R.id.mage);
+		TextView appName = findViewById(R.id.mage);
 		appName.setTypeface(Typeface.createFromAsset(getAssets(),"fonts/GondolaMage-Regular.otf"));
 
 		final PasswordStrengthFragment passwordStrengthFragment = (PasswordStrengthFragment) getSupportFragmentManager().findFragmentById(R.id.password_strength_fragment);
 
-		mDisplayNameEditText = (EditText) findViewById(R.id.signup_displayname);
-		mDisplayNameLayout = (TextInputLayout) findViewById(R.id.displayname_layout);
+		mDisplayNameEditText = findViewById(R.id.signup_displayname);
+		mDisplayNameLayout = findViewById(R.id.displayname_layout);
 
-		mUsernameEditText = (EditText) findViewById(R.id.signup_username);
-		mUsernameLayout = (TextInputLayout) findViewById(R.id.username_layout);
+		mUsernameEditText = findViewById(R.id.signup_username);
+		mUsernameLayout = findViewById(R.id.username_layout);
 
-		mEmailEditText = (EditText) findViewById(R.id.signup_email);
-		mEmailLayout = (TextInputLayout) findViewById(R.id.email_layout);
+		mEmailEditText = findViewById(R.id.signup_email);
+		mEmailLayout = findViewById(R.id.email_layout);
 
-		mPhoneEditText = (EditText) findViewById(R.id.signup_phone);
+		mPhoneEditText = findViewById(R.id.signup_phone);
 
-		mPasswordEditText = (EditText) findViewById(R.id.signup_password);
+		mPasswordEditText = findViewById(R.id.signup_password);
 		mPasswordEditText.setTypeface(Typeface.DEFAULT);
-		mPasswordLayout = (TextInputLayout) findViewById(R.id.password_layout);
+		mPasswordLayout = findViewById(R.id.password_layout);
 		mPasswordEditText.addTextChangedListener(new TextWatcher() {
 			@Override
 			public void beforeTextChanged(CharSequence s, int start, int count, int after) {
@@ -143,22 +135,19 @@ public class SignupActivity extends AppCompatActivity implements AccountDelegate
 			}
 		});
 
-		mConfirmPasswordEditText = (EditText) findViewById(R.id.signup_confirmpassword);
+		mConfirmPasswordEditText = findViewById(R.id.signup_confirmpassword);
 		mConfirmPasswordEditText.setTypeface(Typeface.DEFAULT);
-		mConfirmPasswordLayout = (TextInputLayout) findViewById(R.id.confirmpassword_layout);
+		mConfirmPasswordLayout = findViewById(R.id.confirmpassword_layout);
 
 		SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
 		serverURL = sharedPreferences.getString(getString(R.string.serverURLKey), getString(R.string.serverURLDefaultValue));
 
-		mConfirmPasswordEditText.setOnKeyListener(new View.OnKeyListener() {
-			@Override
-			public boolean onKey(View v, int keyCode, KeyEvent event) {
-				if (keyCode == KeyEvent.KEYCODE_ENTER) {
-					signup(v);
-					return true;
-				} else {
-					return false;
-				}
+		mConfirmPasswordEditText.setOnKeyListener((v, keyCode, event) -> {
+			if (keyCode == KeyEvent.KEYCODE_ENTER) {
+				signup(v);
+				return true;
+			} else {
+				return false;
 			}
 		});
 
@@ -167,29 +156,10 @@ public class SignupActivity extends AppCompatActivity implements AccountDelegate
 
 	private void configureSignup() {
 		PreferenceHelper preferenceHelper = PreferenceHelper.getInstance(getApplicationContext());
-		boolean googleAuthentication = preferenceHelper.containsGoogleAuthentication();
-		boolean localAuthentication = preferenceHelper.containsLocalAuthentication();
 
 		if (preferenceHelper.containsLocalAuthentication()) {
-			Button localButton = (Button) findViewById(R.id.local_signup_button);
-			localButton.setOnClickListener(new View.OnClickListener() {
-				@Override
-				public void onClick(View v) {
-					signup(v);
-				}
-			});
-		}
-
-		Button googleButton = (Button) findViewById(R.id.google_signup_button);
-		googleButton.setVisibility(googleAuthentication ? View.VISIBLE : View.GONE);
-		findViewById(R.id.or).setVisibility(localAuthentication && googleAuthentication ? View.VISIBLE : View.GONE);
-		if (preferenceHelper.containsGoogleAuthentication()) {
-			googleButton.setOnClickListener(new View.OnClickListener() {
-				@Override
-				public void onClick(View v) {
-					googleSignup();
-				}
-			});
+			Button localButton = findViewById(R.id.local_signup_button);
+			localButton.setOnClickListener(this::signup);
 		}
 	}
 
@@ -201,13 +171,6 @@ public class SignupActivity extends AppCompatActivity implements AccountDelegate
 	public void login(View view) {
 		startActivity(new Intent(getApplicationContext(), LoginActivity.class));
 		finish();
-	}
-
-	private void googleSignup() {
-		Intent intent = new Intent(getApplicationContext(), OAuthActivity.class);
-		intent.putExtra(OAuthActivity.EXTRA_SERVER_URL, serverURL);
-		intent.putExtra(OAuthActivity.EXTRA_OAUTH_TYPE, OAuthActivity.OAuthType.SIGINUP);
-		startActivityForResult(intent, EXTRA_OAUTH_RESULT);
 	}
 
 	/**
@@ -253,10 +216,12 @@ public class SignupActivity extends AppCompatActivity implements AccountDelegate
 		}
 
 		SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
-		Integer passwordLength = sharedPreferences.getInt(getString(R.string.passwordMinLengthKey), getResources().getInteger(R.integer.passwordMinLengthDefaultValue));
-		if (password.length() < passwordLength) {
-			mPasswordLayout.setError("Password must be " + passwordLength + " characters");
-			return;
+		if (sharedPreferences.contains(getString(R.string.localPasswordMinLength))) {
+			int passwordLength = sharedPreferences.getInt(getString(R.string.localPasswordMinLength), -1);
+			if (password.length() < passwordLength) {
+				mPasswordLayout.setError("Password must be " + passwordLength + " characters");
+				return;
+			}
 		}
 
 		if (TextUtils.isEmpty(confirmpassword)) {
@@ -284,11 +249,6 @@ public class SignupActivity extends AppCompatActivity implements AccountDelegate
 		findViewById(R.id.signup_status).setVisibility(View.VISIBLE);
 
 		new SignupTask(this, this.getApplicationContext()).execute(accountInfo.toArray(new String[accountInfo.size()]));
-	}
-
-	private void showKeyboard() {
-		InputMethodManager inputMethodManager = (InputMethodManager) getSystemService(Activity.INPUT_METHOD_SERVICE);
-		inputMethodManager.toggleSoftInput(InputMethodManager.SHOW_IMPLICIT, 0);
 	}
 
 	@Override
@@ -352,38 +312,17 @@ public class SignupActivity extends AppCompatActivity implements AccountDelegate
 		findViewById(R.id.signup_form).setVisibility(View.VISIBLE);
 	}
 
-	@Override
-	protected void onActivityResult(int requestCode, int resultCode, Intent intent) {
-		super.onActivityResult(requestCode, resultCode, intent);
-
-		if (requestCode == EXTRA_OAUTH_RESULT && resultCode == RESULT_OK) {
-			if (intent.getBooleanExtra(EXTRA_OAUTH_ERROR, false)) {
-				String errorMessage = intent.getStringExtra(EXTRA_OAUTH_ERROR_MESSAGE);
-				AlertDialog.Builder alertDialog = new AlertDialog.Builder(this);
-				alertDialog.setTitle("Problem Creating Account");
-				alertDialog.setMessage(errorMessage);
-				alertDialog.setPositiveButton("Ok", null);
-				alertDialog.show();
-			} else {
-				//TODO see if any user info is in the intent
-				showSignupSuccessDialog(false);
-			}
-		}
-	}
-
 	private void showSignupSuccessDialog(boolean isActive) {
 		AlertDialog.Builder alertDialog = new AlertDialog.Builder(this);
-		alertDialog.setTitle("Account Created");
-		if(!isActive) {
-			alertDialog.setMessage("Your account has been created but it is not active.  An administrator needs to activate your account before you can log in.");
-		} else{
-			alertDialog.setMessage("Your account has been created and is now active.");
+		alertDialog.setTitle(R.string.account_created_title);
+
+		if (isActive) {
+			alertDialog.setMessage(R.string.account_created_active);
+		} else {
+			alertDialog.setMessage(R.string.account_created_inactive);
 		}
-		alertDialog.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
-			public void onClick(DialogInterface dialog, int which) {
-				login(null);
-			}
-		});
+
+		alertDialog.setPositiveButton("Ok", (dialog, which) -> login(null));
 		alertDialog.show();
 	}
 }

@@ -219,6 +219,10 @@ dependencies {
     implementation 'androidx.lifecycle:lifecycle-extensions:1.1.0'
     implementation "com.google.android.gms:play-services-maps:$google_play_services_version"
 
+    implementation ('androidx.browser:browser:1.2.0') {
+        exclude group: 'com.google.guava', module: 'listenablefuture'
+    }
+
     implementation "com.google.dagger:dagger:$dagger_version"
     implementation "com.google.dagger:dagger-android-support:$dagger_version"
     kapt "com.google.dagger:dagger-compiler:$dagger_version"
@@ -229,7 +233,7 @@ dependencies {
     }
 
 //        api project(':sdk') // uncomment me to build locally, and see top-level build.gradle
-    api 'mil.nga.giat.mage:mage-android-sdk:6.2.6' // comment me to build locally
+    api 'mil.nga.giat.mage:mage-android-sdk:6.2.7' // comment me to build locally
     api 'com.google.maps.android:android-maps-utils:0.6.2'
     api 'mil.nga.geopackage.map:geopackage-android-map:3.4.0'
     api 'org.ocpsoft.prettytime:prettytime:3.2.5.Final'
@@ -241,6 +245,8 @@ dependencies {
     api 'com.google.android:flexbox:0.3.2'
     api 'com.nulab-inc:zxcvbn:1.2.3'
     api (name:'mgrs-0.0.2-release', ext:'aar')
+
+    implementation "androidx.core:core-ktx:1.2.0"
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
 
     // Testing-only dependencies

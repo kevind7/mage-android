@@ -104,6 +104,7 @@ constructor(val context: Context, val preferences: SharedPreferences) : LiveData
     private inner class LiveDataLocationListener : LocationListener {
 
         override fun onLocationChanged(location: Location) {
+            // TODO prioritize GPS over cell here?
             setValue(location)
         }
 
